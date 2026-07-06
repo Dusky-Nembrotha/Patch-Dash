@@ -9,7 +9,7 @@ export const CONFIG = {
   // --- Google Cloud OAuth client (Google Cloud Console > Credentials) ---
   // Used for: signing in, and reading/writing your Drive data.
   google: {
-    clientId: "YOUR-GOOGLE-CLIENT-ID.apps.googleusercontent.com",
+    clientId: "906651489690-9k89038s9ialjh2rm6bodlp0h5bf22fk.apps.googleusercontent.com",
   },
 
   // --- Your deployed Google Apps Script Web App URL ---
