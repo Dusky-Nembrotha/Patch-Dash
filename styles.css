@@ -1,0 +1,404 @@
+/* ============================================================
+   A PATCH WILDER — Dashboard
+   Design tokens: dark ranger-station palette, patch/stitch motif
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Color */
+  --canopy: #14201A;      /* deep forest background */
+  --bark: #1C2A21;        /* panel surface */
+  --bark-raised: #23342A; /* hovered / raised surface */
+  --moss: #6B8F5C;        /* primary accent */
+  --lichen: #C9D96B;      /* secondary accent / highlight */
+  --mist: #9FB3A6;        /* muted text, borders */
+  --paper: #EDEAD9;       /* light text on dark */
+  --clay: #C97D5D;        /* warning / flagged accent */
+  --sky: #7FA9B5;         /* info accent (calendar) */
+
+  /* Type */
+  --font-display: 'Fraunces', serif;
+  --font-body: 'Public Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Spacing / shape */
+  --radius: 3px;
+  --stitch: repeating-linear-gradient(
+    90deg,
+    var(--mist) 0px, var(--mist) 6px,
+    transparent 6px, transparent 12px
+  );
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--canopy);
+  color: var(--paper);
+  font-family: var(--font-body);
+  min-height: 100%;
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 15% 10%, rgba(107,143,92,0.08), transparent 40%),
+    radial-gradient(circle at 85% 90%, rgba(127,169,181,0.06), transparent 45%);
+  background-attachment: fixed;
+}
+
+/* Topographic texture, very low opacity, fixed behind content */
+.topo-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.05;
+  pointer-events: none;
+  background-image: url('assets/topo.svg');
+  background-size: 900px;
+}
+
+a { color: var(--lichen); }
+
+::selection { background: var(--moss); color: var(--canopy); }
+
+/* ---------- Header ---------- */
+
+.site-header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 28px 32px 18px;
+  border-bottom: 1px solid rgba(159,179,166,0.2);
+}
+
+.site-header .wordmark {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  color: var(--paper);
+}
+
+.site-header .wordmark em {
+  font-style: italic;
+  color: var(--lichen);
+}
+
+.site-header .status-line {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--mist);
+  text-align: right;
+  line-height: 1.6;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--moss);
+  margin-right: 6px;
+  box-shadow: 0 0 6px var(--moss);
+}
+
+.status-dot.warn { background: var(--clay); box-shadow: 0 0 6px var(--clay); }
+
+/* ---------- Grid ---------- */
+
+.dashboard {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 20px;
+  padding: 24px 32px 60px;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.patch {
+  grid-column: span 6;
+  background: var(--bark);
+  border: 1px solid rgba(159,179,166,0.25);
+  border-radius: var(--radius);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 260px;
+  overflow: hidden;
+}
+
+.patch::before {
+  /* stitched top edge */
+  content: '';
+  position: absolute;
+  top: 6px; left: 6px; right: 6px; bottom: 6px;
+  border: 1px dashed rgba(159,179,166,0.35);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.patch--wide { grid-column: span 12; }
+.patch--narrow { grid-column: span 4; }
+.patch--tall { min-height: 420px; }
+
+.patch-tab {
+  position: absolute;
+  top: -1px;
+  left: 20px;
+  background: var(--moss);
+  color: var(--canopy);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: 4px 10px 5px;
+  border-radius: 0 0 4px 4px;
+  z-index: 2;
+}
+
+.patch-tab.clay { background: var(--clay); }
+.patch-tab.sky { background: var(--sky); color: var(--canopy); }
+.patch-tab.lichen { background: var(--lichen); }
+
+.patch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 20px 12px;
+}
+
+.patch-header h2 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0;
+  padding-top: 4px;
+}
+
+.patch-header .count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--mist);
+}
+
+.patch-body {
+  flex: 1;
+  padding: 4px 20px 20px;
+  overflow-y: auto;
+}
+
+.patch-body::-webkit-scrollbar { width: 6px; }
+.patch-body::-webkit-scrollbar-thumb { background: rgba(159,179,166,0.3); border-radius: 3px; }
+
+/* ---------- Empty / loading / error states ---------- */
+
+.empty-state, .error-state, .loading-state {
+  font-size: 13px;
+  color: var(--mist);
+  padding: 18px 0;
+  line-height: 1.6;
+}
+
+.error-state { color: var(--clay); }
+
+.error-state .fix {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--mist);
+}
+
+/* ---------- Lists (mail, social, calendar, ticket tailor) ---------- */
+
+.item-row {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(159,179,166,0.12);
+}
+.item-row:last-child { border-bottom: none; }
+
+.item-row .flag { color: var(--clay); font-size: 13px; line-height: 1.4; }
+.item-row .unread-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--lichen); margin-top: 6px; flex-shrink: 0;
+}
+.item-row .dot-spacer { width: 6px; flex-shrink: 0; }
+
+.item-main { flex: 1; min-width: 0; }
+.item-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--paper);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.item-sub {
+  font-size: 12px;
+  color: var(--mist);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.item-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--mist);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ---------- Buttons / inputs ---------- */
+
+button, .btn {
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--moss);
+  color: var(--canopy);
+  border: none;
+  border-radius: 3px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+button:hover, .btn:hover { background: var(--lichen); }
+button.ghost {
+  background: transparent;
+  color: var(--mist);
+  border: 1px solid rgba(159,179,166,0.3);
+}
+button.ghost:hover { color: var(--paper); border-color: var(--paper); background: transparent; }
+button:focus-visible, .btn:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--lichen);
+  outline-offset: 2px;
+}
+
+input, textarea, select {
+  font-family: var(--font-body);
+  font-size: 13px;
+  background: var(--canopy);
+  color: var(--paper);
+  border: 1px solid rgba(159,179,166,0.3);
+  border-radius: 3px;
+  padding: 7px 9px;
+  width: 100%;
+}
+textarea { resize: vertical; min-height: 50px; }
+
+.field-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.field-row > * { flex: 1; }
+
+/* ---------- To-do ---------- */
+
+.todo-section {
+  margin-bottom: 16px;
+}
+.todo-section h3 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--lichen);
+  margin: 0 0 8px;
+}
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 13.5px;
+}
+.todo-item.done .todo-text { text-decoration: line-through; color: var(--mist); }
+.todo-item input[type=checkbox] {
+  width: 15px; height: 15px; margin-top: 2px; accent-color: var(--moss); flex-shrink: 0;
+}
+.todo-text { flex: 1; }
+.todo-item .del { background: none; color: var(--mist); padding: 0 4px; font-size: 15px; }
+.todo-item .del:hover { color: var(--clay); background: none; }
+
+/* ---------- Ideas & Funding ---------- */
+
+.idea-card, .funding-card {
+  background: var(--bark-raised);
+  border-radius: 3px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-left: 2px solid var(--lichen);
+}
+.funding-card { border-left-color: var(--sky); }
+.idea-card .idea-title, .funding-card .funding-title {
+  font-weight: 600; font-size: 13.5px; margin-bottom: 2px;
+}
+.idea-card .idea-meta, .funding-card .funding-meta {
+  font-family: var(--font-mono); font-size: 11px; color: var(--mist);
+}
+.funding-status {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  background: rgba(159,179,166,0.15);
+  color: var(--mist);
+  margin-top: 4px;
+}
+.funding-status.applied { color: var(--sky); }
+.funding-status.awarded { color: var(--lichen); }
+.funding-status.declined { color: var(--clay); }
+
+/* ---------- Map ---------- */
+
+#map { width: 100%; height: 100%; min-height: 380px; border-radius: 2px; }
+.leaflet-popup-content-wrapper { background: var(--bark); color: var(--paper); }
+.leaflet-popup-tip { background: var(--bark); }
+.map-popup-form input, .map-popup-form textarea { margin-bottom: 6px; }
+
+/* ---------- Auth gate ---------- */
+
+.auth-gate {
+  position: fixed; inset: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--canopy);
+}
+.auth-box {
+  width: 340px;
+  padding: 32px;
+  background: var(--bark);
+  border: 1px solid rgba(159,179,166,0.25);
+  border-radius: 4px;
+  text-align: center;
+}
+.auth-box .wordmark { font-family: var(--font-display); font-size: 24px; margin-bottom: 4px; }
+.auth-box p { font-size: 13px; color: var(--mist); margin-bottom: 18px; }
+.auth-box input { margin-bottom: 10px; }
+.auth-box .msg { font-size: 12px; margin-top: 10px; color: var(--lichen); }
+
+/* ---------- Connect prompts (for unconfigured integrations) ---------- */
+
+.connect-btn { margin-top: 8px; }
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 1000px) {
+  .patch, .patch--narrow { grid-column: span 12; }
+  .site-header { flex-direction: column; gap: 8px; align-items: flex-start; }
+  .site-header .status-line { text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

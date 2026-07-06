@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>A Patch Wilder — Dashboard</title>
+<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+
+<div class="topo-bg"></div>
+
+<!-- ================= AUTH GATE ================= -->
+<div class="auth-gate" id="auth-gate" style="display:none;">
+  <div class="auth-box">
+    <div class="wordmark">A Patch <em>Wilder</em></div>
+    <p>Private dashboard. Connect your Google account — this signs you in and stores your data in a folder in your own Drive.</p>
+    <button id="google-connect-btn">Connect Google account</button>
+    <div class="msg" id="auth-msg"></div>
+  </div>
+</div>
+
+<!-- ================= HEADER ================= -->
+<header class="site-header">
+  <div class="wordmark">A Patch <em>Wilder</em></div>
+  <div class="status-line">
+    <span id="user-email"></span><br>
+    <span class="status-dot"></span>Dashboard live
+    &nbsp;·&nbsp;
+    <button class="ghost" id="sign-out-btn" style="padding:2px 8px;">Sign out</button>
+  </div>
+</header>
+
+<!-- ================= DASHBOARD GRID ================= -->
+<main class="dashboard">
+
+  <!-- MAP -->
+  <section class="patch patch--wide patch--tall">
+    <span class="patch-tab">Field Map</span>
+    <div class="patch-header">
+      <h2>Site map</h2>
+      <span class="count">click anywhere to drop a pin</span>
+    </div>
+    <div class="patch-body" style="padding:0 20px 20px;">
+      <div id="map"></div>
+    </div>
+  </section>
+
+  <!-- OUTLOOK MAIL -->
+  <section class="patch patch--narrow">
+    <span class="patch-tab clay">Inbox</span>
+    <div class="patch-header"><h2>Flagged &amp; unread</h2></div>
+    <div class="patch-body" id="mail-body">
+      <div class="loading-state">Loading…</div>
+    </div>
+  </section>
+
+  <!-- CALENDAR -->
+  <section class="patch patch--narrow">
+    <span class="patch-tab sky">Calendar</span>
+    <div class="patch-header"><h2>Upcoming events</h2></div>
+    <div class="patch-body" id="calendar-body">
+      <div class="loading-state">Loading…</div>
+    </div>
+  </section>
+
+  <!-- TICKET TAILOR -->
+  <section class="patch patch--narrow">
+    <span class="patch-tab sky">Ticket Tailor</span>
+    <div class="patch-header"><h2>Booked events</h2></div>
+    <div class="patch-body" id="tt-body">
+      <div class="loading-state">Loading…</div>
+    </div>
+  </section>
+
+  <!-- SOCIAL -->
+  <section class="patch">
+    <span class="patch-tab clay">Messages</span>
+    <div class="patch-header"><h2>Facebook &amp; Instagram</h2></div>
+    <div class="patch-body" id="social-body">
+      <div class="loading-state">Loading…</div>
+    </div>
+  </section>
+
+  <!-- TO DO -->
+  <section class="patch patch--tall">
+    <span class="patch-tab lichen">Action</span>
+    <div class="patch-header">
+      <h2>To-do</h2>
+      <button class="ghost" id="todo-add-section" style="padding:4px 8px; font-size:11.5px;">+ Section</button>
+    </div>
+    <div class="patch-body" id="todo-body">
+      <div class="loading-state">Loading…</div>
+    </div>
+  </section>
+
+  <!-- IDEAS -->
+  <section class="patch patch--narrow patch--tall">
+    <span class="patch-tab lichen">Ideas</span>
+    <div class="patch-header"><h2>Ideas</h2></div>
+    <div class="patch-body">
+      <div class="field-row">
+        <input type="text" id="idea-title-input" placeholder="Idea" />
+      </div>
+      <div class="field-row">
+        <textarea id="idea-notes-input" placeholder="Notes (optional)"></textarea>
+      </div>
+      <button id="idea-add-btn" style="margin-bottom:12px;">Add idea</button>
+      <div id="ideas-list"></div>
+    </div>
+  </section>
+
+  <!-- FUNDING -->
+  <section class="patch patch--narrow patch--tall">
+    <span class="patch-tab">Funding</span>
+    <div class="patch-header"><h2>Funding initiatives</h2></div>
+    <div class="patch-body">
+      <div class="field-row">
+        <input type="text" id="funding-title-input" placeholder="Grant / fund name" />
+      </div>
+      <div class="field-row">
+        <input type="text" id="funding-funder-input" placeholder="Funder" />
+        <input type="number" id="funding-amount-input" placeholder="Amount (£)" />
+      </div>
+      <div class="field-row">
+        <select id="funding-status-input">
+          <option value="researching">Researching</option>
+          <option value="applied">Applied</option>
+          <option value="awarded">Awarded</option>
+          <option value="declined">Declined</option>
+        </select>
+        <input type="date" id="funding-deadline-input" />
+      </div>
+      <button id="funding-add-btn" style="margin-bottom:12px;">Add</button>
+      <div id="funding-list"></div>
+    </div>
+  </section>
+
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.2/js/msal-browser.min.js"></script>
+<script type="module" src="js/app.js"></script>
+
+</body>
+</html>

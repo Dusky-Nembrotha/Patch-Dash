@@ -1,0 +1,29 @@
+// ============================================================
+// A PATCH WILDER — Configuration
+// Fill in the values below. Everything here is PUBLIC-SAFE:
+// no secret keys ever go in this file or anywhere in the
+// front-end code. See SETUP.md for where each value comes from.
+// ============================================================
+
+export const CONFIG = {
+  // --- Google Cloud OAuth client (Google Cloud Console > Credentials) ---
+  // Used for: signing in, and reading/writing your Drive data.
+  google: {
+    clientId: "YOUR-GOOGLE-CLIENT-ID.apps.googleusercontent.com",
+  },
+
+  // --- Your deployed Google Apps Script Web App URL ---
+  // This holds your Ticket Tailor / Meta keys server-side and proxies
+  // requests for them, so those secrets never reach the browser.
+  appsScriptUrl: "https://script.google.com/macros/s/YOUR-DEPLOYMENT-ID/exec",
+
+  // --- Microsoft Entra ID (Azure AD) app registration for Outlook ---
+  // App registration > Overview. Redirect URI must be your GitHub Pages
+  // URL exactly, e.g. https://yourname.github.io/patch-wilder/
+  microsoft: {
+    clientId: "YOUR-AZURE-APP-CLIENT-ID",
+    authority: "https://login.microsoftonline.com/common",
+    redirectUri: window.location.origin + window.location.pathname,
+    scopes: ["Mail.Read", "Calendars.Read"],
+  },
+};
