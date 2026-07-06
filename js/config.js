@@ -15,7 +15,7 @@ export const CONFIG = {
   // --- Your deployed Google Apps Script Web App URL ---
   // This holds your Ticket Tailor / Meta keys server-side and proxies
   // requests for them, so those secrets never reach the browser.
-  appsScriptUrl: "https://script.google.com/macros/s/YOUR-DEPLOYMENT-ID/exec",
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbwPFO8IGO7cfEHLNmuTCcUsflTusj8iB5LDGN0Y1PqF7o87TVqTi5oOVvM71RE6n0Spwg/exec",
 
   // --- Microsoft Entra ID (Azure AD) app registration for Outlook ---
   // App registration > Overview. Redirect URI must be your GitHub Pages
