@@ -1,4 +1,5 @@
 import { loadCollection, saveCollection, newId } from "./driveStore.js";
+import { makeSortable } from "./reorder.js";
 
 let fundingItems = [];
 
@@ -35,33 +36,38 @@ export async function initFunding() {
 
 function render() {
   const body = document.getElementById("funding-list");
-  const sorted = [...fundingItems].sort((a, b) => {
-    if (!a.deadline) return 1;
-    if (!b.deadline) return -1;
-    return new Date(a.deadline) - new Date(b.deadline);
-  });
 
-  if (!sorted.length) {
+  if (!fundingItems.length) {
     body.innerHTML = `<div class="empty-state">No funding initiatives tracked yet.</div>`;
     return;
   }
 
-  body.innerHTML = sorted.map(cardHtml).join("");
+  body.innerHTML = fundingItems.map(cardHtml).join("");
 
-  sorted.forEach((f) => {
+  fundingItems.forEach((f) => {
     document.getElementById(`funding-del-${f.id}`).addEventListener("click", async () => {
       fundingItems = fundingItems.filter((i) => i.id !== f.id);
       await saveCollection("funding", fundingItems);
       render();
     });
   });
+
+  makeSortable(body, ".funding-card", onReorder, { handleSelector: ".drag-handle" });
+}
+
+async function onReorder() {
+  const body = document.getElementById("funding-list");
+  const order = [...body.querySelectorAll(".funding-card")].map((el) => el.dataset.id);
+  fundingItems.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  await saveCollection("funding", fundingItems);
 }
 
 function cardHtml(f) {
   const amountStr = f.amount ? `£${Number(f.amount).toLocaleString()}` : "";
   const deadlineStr = f.deadline ? new Date(f.deadline).toLocaleDateString() : "No deadline";
   return `
-    <div class="funding-card">
+    <div class="funding-card" data-id="${f.id}">
+      <span class="drag-handle" title="Drag to reorder">⠿</span>
       <div class="funding-title">${escapeHtml(f.title)}</div>
       <div class="funding-meta">${escapeHtml(f.funder || "")} ${amountStr ? "· " + amountStr : ""} · ${deadlineStr}
         <button class="del" id="funding-del-${f.id}" style="float:right;">&times;</button>

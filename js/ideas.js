@@ -1,4 +1,5 @@
 import { loadCollection, saveCollection, newId } from "./driveStore.js";
+import { makeSortable } from "./reorder.js";
 
 let ideas = [];
 
@@ -37,12 +38,22 @@ function render() {
       render();
     });
   });
+
+  makeSortable(body, ".idea-card", onReorder, { handleSelector: ".drag-handle" });
+}
+
+async function onReorder() {
+  const body = document.getElementById("ideas-list");
+  const order = [...body.querySelectorAll(".idea-card")].map((el) => el.dataset.id);
+  ideas.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  await saveCollection("ideas", ideas);
 }
 
 function cardHtml(idea) {
   const date = new Date(idea.created_at).toLocaleDateString();
   return `
-    <div class="idea-card">
+    <div class="idea-card" data-id="${idea.id}">
+      <span class="drag-handle" title="Drag to reorder">⠿</span>
       <div class="idea-title">${escapeHtml(idea.title)}</div>
       ${idea.notes ? `<div class="item-sub" style="white-space:normal;">${escapeHtml(idea.notes)}</div>` : ""}
       <div class="idea-meta">${date}

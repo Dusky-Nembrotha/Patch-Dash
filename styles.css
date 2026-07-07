@@ -403,15 +403,34 @@ textarea { resize: vertical; min-height: 50px; }
 .todo-item .del { background: none; color: var(--muted); padding: 0 4px; font-size: 15px; }
 .todo-item .del:hover { color: #BC5237; background: none; }
 
+/* ---------- Drag-to-reorder ---------- */
+
+.drag-handle {
+  cursor: grab;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
+  opacity: 0.55;
+}
+.drag-handle:hover { opacity: 1; }
+.drag-handle:active { cursor: grabbing; }
+.todo-item .drag-handle { flex-shrink: 0; margin-top: 3px; }
+.dragging { opacity: 0.4; }
+
 /* ---------- Ideas & Funding ---------- */
 
 .idea-card, .funding-card {
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 4px;
-  padding: 10px 12px;
+  padding: 10px 26px 10px 12px;
   margin-bottom: 8px;
   border-left: 3px solid var(--accent);
+}
+.idea-card .drag-handle, .funding-card .drag-handle {
+  position: absolute; top: 9px; right: 9px;
 }
 .idea-card .idea-title, .funding-card .funding-title {
   font-weight: 500; font-size: 13.5px; margin-bottom: 2px;
