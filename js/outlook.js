@@ -1,7 +1,7 @@
 import { CONFIG } from "./config.js";
 
 let msalInstance;
-let account;
+let redirectHandled = false;
 
 function isConfigured() {
   return CONFIG.microsoft.clientId && !CONFIG.microsoft.clientId.startsWith("YOUR-");
@@ -21,33 +21,42 @@ function getMsal() {
   return msalInstance;
 }
 
-async function ensureSignedIn() {
-  const client = getMsal();
-  const accounts = client.getAllAccounts();
-  if (accounts.length > 0) {
-    account = accounts[0];
-    return account;
+// Process a returning sign-in redirect exactly once per page load.
+async function handleRedirectOnce() {
+  if (redirectHandled) return;
+  redirectHandled = true;
+  try {
+    await getMsal().handleRedirectPromise();
+  } catch (err) {
+    console.error("Outlook redirect handling failed:", err);
   }
-  // No awaits before loginPopup: the popup must open synchronously within the
-  // Connect click, or the browser blocks it (empty_window_error). The redirect
-  // promise is already handled once at load in initOutlookPanel.
-  const result = await client.loginPopup({ scopes: CONFIG.microsoft.scopes });
-  account = result.account;
-  return account;
 }
 
-async function getToken() {
-  const client = getMsal();
+function currentAccount() {
+  const accounts = getMsal().getAllAccounts();
+  return accounts.length ? accounts[0] : null;
+}
+
+// Returns a Graph token without any user interaction, or null if a fresh
+// sign-in is required (no account, expired session, consent needed, etc.).
+async function getTokenSilent() {
+  const account = currentAccount();
+  if (!account) return null;
   try {
-    const result = await client.acquireTokenSilent({
+    const res = await getMsal().acquireTokenSilent({
       scopes: CONFIG.microsoft.scopes,
       account,
     });
-    return result.accessToken;
-  } catch (e) {
-    const result = await client.acquireTokenPopup({ scopes: CONFIG.microsoft.scopes });
-    return result.accessToken;
+    return res.accessToken;
+  } catch (err) {
+    return null;
   }
+}
+
+// Full-page redirect to Microsoft and back — works even when popups are
+// blocked. On return, handleRedirectOnce() completes it and the panels load.
+function startSignIn() {
+  getMsal().loginRedirect({ scopes: CONFIG.microsoft.scopes });
 }
 
 async function graphGet(path, token) {
@@ -58,42 +67,42 @@ async function graphGet(path, token) {
   return res.json();
 }
 
-export async function initOutlookMail() {
-  await initOutlookPanel(
-    "mail-body",
-    "mail-connect-btn",
-    "Connect Outlook to see flagged &amp; unread mail here.",
-    loadMail
-  );
-}
-
-// Decides what a mail/calendar panel shows on load:
-//  - not configured yet -> a note pointing at SETUP.md
-//  - configured + already signed in -> load straight away (silent token)
-//  - configured + not signed in -> a Connect button, so the Microsoft
-//    login popup opens from a real click (browsers block gesture-less popups)
-async function initOutlookPanel(bodyId, btnId, prompt, loadFn) {
+// Shared panel bootstrap: if a silent token is available, render; otherwise
+// show a Connect button that kicks off the redirect sign-in.
+async function initOutlookPanel(bodyId, btnId, prompt, render) {
   const body = document.getElementById(bodyId);
   if (!isConfigured()) {
     body.innerHTML = `<div class="empty-state">Outlook isn't set up yet — add your Azure client ID to js/config.js (SETUP.md step 5).</div>`;
     return;
   }
-  const client = getMsal();
-  await client.handleRedirectPromise();
-  if (client.getAllAccounts().length > 0) {
-    await loadFn(body);
+  await handleRedirectOnce();
+  const token = await getTokenSilent();
+  if (token) {
+    await render(body, token, btnId);
   } else {
-    body.innerHTML = connectPrompt(btnId, prompt);
-    document.getElementById(btnId).addEventListener("click", () => loadFn(body));
+    showConnect(body, btnId, prompt);
   }
 }
 
-async function loadMail(body) {
-  try {
-    body.innerHTML = `<div class="loading-state">Connecting to Outlook…</div>`;
-    await ensureSignedIn();
-    const token = await getToken();
+function showConnect(body, btnId, prompt) {
+  body.innerHTML = connectPrompt(btnId, prompt);
+  document.getElementById(btnId).addEventListener("click", startSignIn);
+}
 
+// ---------- Mail ----------
+
+export async function initOutlookMail() {
+  await initOutlookPanel(
+    "mail-body",
+    "mail-connect-btn",
+    "Connect Outlook to see flagged &amp; unread mail here.",
+    renderMail
+  );
+}
+
+async function renderMail(body, token, btnId) {
+  try {
+    body.innerHTML = `<div class="loading-state">Loading mail…</div>`;
     const [unread, flagged] = await Promise.all([
       graphGet(`/me/mailFolders/inbox/messages?$filter=isRead eq false&$top=8&$select=subject,from,receivedDateTime`, token),
       graphGet(`/me/mailFolders/inbox/messages?$filter=flag/flagStatus eq 'flagged'&$top=8&$select=subject,from,receivedDateTime`, token),
@@ -106,7 +115,7 @@ async function loadMail(body) {
     }
     body.innerHTML = merged.map(mailRowHtml).join("");
   } catch (err) {
-    body.innerHTML = errorHtml("Couldn't load Outlook mail.", err.message);
+    showError(body, btnId, "Couldn't load Outlook mail.", err.message);
   }
 }
 
@@ -132,21 +141,20 @@ function mailRowHtml(m) {
   `;
 }
 
+// ---------- Calendar ----------
+
 export async function initOutlookCalendar() {
   await initOutlookPanel(
     "calendar-body",
     "calendar-connect-btn",
     "Connect Outlook to see upcoming events here.",
-    loadCalendar
+    renderCalendar
   );
 }
 
-async function loadCalendar(body) {
+async function renderCalendar(body, token, btnId) {
   try {
-    body.innerHTML = `<div class="loading-state">Connecting to Outlook…</div>`;
-    await ensureSignedIn();
-    const token = await getToken();
-
+    body.innerHTML = `<div class="loading-state">Loading calendar…</div>`;
     const now = new Date();
     const in14 = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
     const data = await graphGet(
@@ -160,7 +168,7 @@ async function loadCalendar(body) {
     }
     body.innerHTML = data.value.map(eventRowHtml).join("");
   } catch (err) {
-    body.innerHTML = errorHtml("Couldn't load calendar.", err.message);
+    showError(body, btnId, "Couldn't load calendar.", err.message);
   }
 }
 
@@ -179,8 +187,18 @@ function eventRowHtml(ev) {
   `;
 }
 
+// ---------- Shared UI ----------
+
 function connectPrompt(btnId, text) {
   return `<div class="empty-state">${text}<br><button class="connect-btn" id="${btnId}">Connect Outlook</button></div>`;
+}
+
+// Shows an error and a button to retry the sign-in (e.g. token went stale).
+function showError(body, btnId, headline, detail) {
+  body.innerHTML =
+    errorHtml(headline, detail) +
+    `<button class="connect-btn" id="${btnId}">Reconnect Outlook</button>`;
+  document.getElementById(btnId).addEventListener("click", startSignIn);
 }
 
 function errorHtml(headline, detail) {
