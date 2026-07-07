@@ -5,9 +5,11 @@ const SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
 ].join(" ");
 
-// Where we stash the access token between page loads. sessionStorage keeps
-// it for the life of the tab (so a refresh doesn't force a re-login) but
-// clears it when the tab closes — a reasonable spot for a ~1h bearer token.
+// Where we stash the access token between page loads. localStorage persists
+// it across refreshes AND browser restarts, so you stay signed in until the
+// token expires (~1h) — after which a silent refresh renews it without a
+// popup. Cleared on sign-out. (A drive.file + email scoped bearer token in
+// localStorage is a fair trade-off for a private single-user dashboard.)
 const STORAGE_KEY = "apw_google_auth";
 
 let tokenClient;
@@ -27,7 +29,7 @@ function loadGis() {
 
 function persist() {
   try {
-    sessionStorage.setItem(
+    localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ accessToken, tokenExpiry, email: currentEmail })
     );
@@ -36,7 +38,7 @@ function persist() {
 
 function restore() {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const saved = JSON.parse(raw);
     // Keep a small safety margin so we don't hand back a token about to expire.
@@ -47,7 +49,7 @@ function restore() {
 
 function clearStored() {
   try {
-    sessionStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY);
   } catch (_) {}
 }
 
@@ -104,8 +106,12 @@ export async function requireGoogleAuth(onReady) {
     return;
   }
 
-  // Otherwise try a silent sign-in (works if this browser already granted
-  // access); the gate stays up until it succeeds or the user connects.
+  // Otherwise show the gate and try a silent sign-in behind it. If the
+  // browser still has an active Google session + prior consent, the token
+  // comes back with no popup and handleToken hides the gate; if not, the
+  // Connect button is already there for the user. (We keep the gate up
+  // rather than hidden so a silent attempt that never resolves can't leave
+  // the user stuck with no way in.)
   gate.style.display = "flex";
   tokenClient.requestAccessToken({ prompt: "" });
 }
