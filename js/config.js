@@ -21,7 +21,7 @@ export const CONFIG = {
   // App registration > Overview. Redirect URI must be your GitHub Pages
   // URL exactly, e.g. https://yourname.github.io/patch-wilder/
   microsoft: {
-    clientId: "YOUR-AZURE-APP-CLIENT-ID",
+    clientId: "a434f2c0-4ae1-4cc6-9a8c-35806710ff5a",
     authority: "https://login.microsoftonline.com/common",
     redirectUri: window.location.origin + window.location.pathname,
     scopes: ["Mail.Read", "Calendars.Read"],

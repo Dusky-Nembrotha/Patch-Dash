@@ -57,13 +57,33 @@ async function graphGet(path, token) {
 }
 
 export async function initOutlookMail() {
-  const body = document.getElementById("mail-body");
+  await initOutlookPanel(
+    "mail-body",
+    "mail-connect-btn",
+    "Connect Outlook to see flagged &amp; unread mail here.",
+    loadMail
+  );
+}
+
+// Decides what a mail/calendar panel shows on load:
+//  - not configured yet -> a note pointing at SETUP.md
+//  - configured + already signed in -> load straight away (silent token)
+//  - configured + not signed in -> a Connect button, so the Microsoft
+//    login popup opens from a real click (browsers block gesture-less popups)
+async function initOutlookPanel(bodyId, btnId, prompt, loadFn) {
+  const body = document.getElementById(bodyId);
   if (!isConfigured()) {
-    body.innerHTML = connectPrompt("mail-connect-btn", "Connect Outlook to see flagged &amp; unread mail here.");
-    document.getElementById("mail-connect-btn").addEventListener("click", () => loadMail(body));
+    body.innerHTML = `<div class="empty-state">Outlook isn't set up yet — add your Azure client ID to js/config.js (SETUP.md step 5).</div>`;
     return;
   }
-  await loadMail(body);
+  const client = getMsal();
+  await client.handleRedirectPromise();
+  if (client.getAllAccounts().length > 0) {
+    await loadFn(body);
+  } else {
+    body.innerHTML = connectPrompt(btnId, prompt);
+    document.getElementById(btnId).addEventListener("click", () => loadFn(body));
+  }
 }
 
 async function loadMail(body) {
@@ -111,13 +131,12 @@ function mailRowHtml(m) {
 }
 
 export async function initOutlookCalendar() {
-  const body = document.getElementById("calendar-body");
-  if (!isConfigured()) {
-    body.innerHTML = connectPrompt("calendar-connect-btn", "Connect Outlook to see upcoming events here.");
-    document.getElementById("calendar-connect-btn").addEventListener("click", () => loadCalendar(body));
-    return;
-  }
-  await loadCalendar(body);
+  await initOutlookPanel(
+    "calendar-body",
+    "calendar-connect-btn",
+    "Connect Outlook to see upcoming events here.",
+    loadCalendar
+  );
 }
 
 async function loadCalendar(body) {
