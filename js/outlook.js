@@ -23,12 +23,14 @@ function getMsal() {
 
 async function ensureSignedIn() {
   const client = getMsal();
-  await client.handleRedirectPromise();
   const accounts = client.getAllAccounts();
   if (accounts.length > 0) {
     account = accounts[0];
     return account;
   }
+  // No awaits before loginPopup: the popup must open synchronously within the
+  // Connect click, or the browser blocks it (empty_window_error). The redirect
+  // promise is already handled once at load in initOutlookPanel.
   const result = await client.loginPopup({ scopes: CONFIG.microsoft.scopes });
   account = result.account;
   return account;
