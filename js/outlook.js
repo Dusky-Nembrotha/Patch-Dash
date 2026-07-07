@@ -1,5 +1,7 @@
 import { CONFIG } from "./config.js";
 import { loadComments, commentsBlockHtml, wireCommentActions } from "./comments.js";
+import { loadMeta, setMeta } from "./meta.js";
+import { assignableUsers, userColor } from "./users.js";
 
 let msalInstance;
 let redirectPromise;
@@ -107,7 +109,8 @@ function showConnect(body, btnId, prompt) {
 
 let mailMessages = [];
 let mailComments = [];
-let mailFilter = "all"; // "all" | "unread" | "flagged"
+let mailMeta = [];
+let mailFilter = "all"; // "all" | "unread" | "flagged" | a user name
 
 export async function initOutlookMail() {
   await initOutlookPanel(
@@ -127,13 +130,18 @@ async function renderMail(body, token, btnId) {
     ]);
     mailMessages = mergeMailLists(unread.value, flagged.value);
 
-    // Comments live in Drive; if that read fails, still show the mail.
-    try {
-      mailComments = await loadComments("mail");
-    } catch (err) {
-      mailComments = [];
-      console.error("Couldn't load mail comments:", err);
-    }
+    // Comments + assignment/priority live in Drive; if those reads fail, still
+    // show the mail.
+    [mailComments, mailMeta] = await Promise.all([
+      loadComments("mail").catch((err) => {
+        console.error("Couldn't load mail comments:", err);
+        return [];
+      }),
+      loadMeta("mail").catch((err) => {
+        console.error("Couldn't load mail metadata:", err);
+        return [];
+      }),
+    ]);
 
     if (!body.dataset.wired) {
       wireMail(body);
@@ -159,46 +167,76 @@ function mergeMailLists(unread, flagged) {
   );
 }
 
+function metaFor(id) {
+  return mailMeta.find((x) => x.refId === id) || {};
+}
+
 function drawMail(body) {
+  const users = assignableUsers();
   const counts = {
     all: mailMessages.length,
     unread: mailMessages.filter((m) => m.unread).length,
     flagged: mailMessages.filter((m) => m.flagged).length,
   };
-  const items = mailMessages.filter((m) =>
-    mailFilter === "unread" ? m.unread : mailFilter === "flagged" ? m.flagged : true
-  );
+  users.forEach((u) => {
+    counts[u.name] = mailMessages.filter((m) => metaFor(m.id).assignee === u.name).length;
+  });
+
+  const isUserFilter = users.some((u) => u.name === mailFilter);
+  const items = mailMessages.filter((m) => {
+    if (mailFilter === "unread") return m.unread;
+    if (mailFilter === "flagged") return m.flagged;
+    if (isUserFilter) return metaFor(m.id).assignee === mailFilter;
+    return true;
+  });
 
   const list = items.length
     ? items.map(mailItemHtml).join("")
-    : `<div class="empty-state">No ${mailFilter === "all" ? "" : mailFilter + " "}mail.</div>`;
+    : `<div class="empty-state">No mail here.</div>`;
 
   body.innerHTML = filterBarHtml(counts) + list;
   appendSignOut(body);
 }
 
 function filterBarHtml(counts) {
-  const chip = (key, label) =>
-    `<button class="chip${mailFilter === key ? " active" : ""}" data-filter="${key}">${label} (${counts[key]})</button>`;
-  return `<div class="mail-filters">${chip("all", "All")}${chip("unread", "Unread")}${chip("flagged", "Flagged")}</div>`;
+  const chip = (key, label, color) =>
+    `<button class="chip${mailFilter === key ? " active" : ""}" data-filter="${key}"${color ? ` style="--chip:${color}"` : ""}>${label} (${counts[key]})</button>`;
+  const userChips = assignableUsers().map((u) => chip(u.name, u.name, u.color)).join("");
+  return `<div class="mail-filters">${chip("all", "All")}${chip("unread", "Unread")}${chip("flagged", "Flagged")}${userChips}</div>`;
 }
 
 function mailItemHtml(m) {
+  const meta = metaFor(m.id);
   const time = new Date(m.receivedDateTime).toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const indicator = m.flagged
     ? '<span class="flag">&#9873;</span>'
     : m.unread
     ? '<span class="unread-dot"></span>'
     : '<span class="dot-spacer"></span>';
+
+  const cls = `note-item${meta.assignee ? " assigned" : ""}${meta.priority ? " priority" : ""}`;
+  const style = meta.assignee ? ` style="--assignee:${userColor(meta.assignee)}"` : "";
+  const prioTag = meta.priority ? '<span class="prio-tag">High</span>' : "";
+  const avatars = assignableUsers()
+    .map(
+      (u) =>
+        `<button class="avatar${meta.assignee === u.name ? " active" : ""}" data-assign="${u.name}" data-id="${escapeAttr(m.id)}" title="Assign to ${u.name}" style="--u:${u.color}">${u.name[0]}</button>`
+    )
+    .join("");
+
   return `
-    <div class="note-item">
+    <div class="${cls}"${style}>
       <div class="item-row">
         ${indicator}
         <div class="item-main">
-          <div class="item-title">${titleLink(m.subject || "(no subject)", m.webLink)}</div>
+          <div class="item-title">${titleLink(m.subject || "(no subject)", m.webLink)}${prioTag}</div>
           <div class="item-sub">${escapeHtml(m.from?.emailAddress?.name || "")}</div>
         </div>
         <div class="item-time">${time}</div>
+      </div>
+      <div class="mail-actions">
+        <button class="prio${meta.priority ? " on" : ""}" data-prio data-id="${escapeAttr(m.id)}" title="Toggle high priority">!</button>
+        <span class="assign-avatars">${avatars}</span>
       </div>
       ${commentsBlockHtml("mail", m.id, mailComments)}
     </div>
@@ -206,17 +244,41 @@ function mailItemHtml(m) {
 }
 
 function wireMail(body) {
-  body.addEventListener("click", (e) => {
+  body.addEventListener("click", async (e) => {
     const chip = e.target.closest(".chip");
     if (chip) {
       mailFilter = chip.dataset.filter;
       drawMail(body);
+      return;
+    }
+    const avatar = e.target.closest(".avatar");
+    if (avatar) {
+      const current = metaFor(avatar.dataset.id).assignee;
+      const assignee = current === avatar.dataset.assign ? null : avatar.dataset.assign;
+      await applyMailMeta(body, avatar.dataset.id, { assignee });
+      return;
+    }
+    const prio = e.target.closest(".prio");
+    if (prio) {
+      await applyMailMeta(body, prio.dataset.id, { priority: !metaFor(prio.dataset.id).priority });
     }
   });
   wireCommentActions(body, (comment) => {
     mailComments.push(comment);
     drawMail(body);
   });
+}
+
+async function applyMailMeta(body, id, patch) {
+  try {
+    const rec = await setMeta("mail", id, patch);
+    const i = mailMeta.findIndex((x) => x.refId === id);
+    if (i >= 0) mailMeta[i] = rec;
+    else mailMeta.push(rec);
+    drawMail(body);
+  } catch (err) {
+    console.error("Failed to update mail metadata:", err);
+  }
 }
 
 // ---------- Calendar ----------

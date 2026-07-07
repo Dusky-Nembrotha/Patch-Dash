@@ -8,7 +8,7 @@
 
 import { loadCollection, saveCollection, newId } from "./driveStore.js";
 import { getCurrentEmail } from "./googleAuth.js";
-import { displayName } from "./users.js";
+import { displayName, userColor } from "./users.js";
 
 function collectionFor(scope) {
   return `comments-${scope}`;
@@ -62,10 +62,10 @@ function escAttr(str) {
 export function commentsBlockHtml(scope, refId, allComments) {
   const existing = allComments
     .filter((c) => c.refId === refId)
-    .map(
-      (c) =>
-        `<div class="cmt"><span class="cmt-text">${esc(c.text)}</span><span class="cmt-meta">${esc(formatAuthor(c))}</span></div>`
-    )
+    .map((c) => {
+      const col = userColor(c.authorEmail || c.author);
+      return `<div class="cmt" style="border-left-color:${col}"><span class="cmt-text">${esc(c.text)}</span><span class="cmt-meta" style="color:${col}">${esc(formatAuthor(c))}</span></div>`;
+    })
     .join("");
   return `<div class="notes" data-scope="${escAttr(scope)}" data-ref="${escAttr(refId)}">
       ${existing}
