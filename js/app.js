@@ -1,5 +1,6 @@
 import { requireGoogleAuth, signOut } from "./googleAuth.js";
 import { getFolderUrl } from "./driveStore.js";
+import { initMasonry } from "./masonry.js";
 import { initMap } from "./map.js";
 import { initTodo } from "./todo.js";
 import { initIdeas } from "./ideas.js";
@@ -9,6 +10,8 @@ import { initTicketTailor } from "./tickettailor.js";
 import { initSocial } from "./social.js";
 
 document.getElementById("sign-out-btn").addEventListener("click", signOut);
+
+initMasonry();
 
 requireGoogleAuth(async () => {
   // Each widget fails independently — one broken integration

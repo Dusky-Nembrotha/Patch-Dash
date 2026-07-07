@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { loadComments, addComment, formatAuthor } from "./comments.js";
+import { loadComments, commentsBlockHtml, wireCommentActions } from "./comments.js";
 
 let msalInstance;
 let redirectPromise;
@@ -122,8 +122,8 @@ async function renderMail(body, token, btnId) {
   try {
     body.innerHTML = `<div class="loading-state">Loading mail…</div>`;
     const [unread, flagged] = await Promise.all([
-      graphGet(`/me/mailFolders/inbox/messages?$filter=isRead eq false&$top=15&$select=subject,from,receivedDateTime`, token),
-      graphGet(`/me/mailFolders/inbox/messages?$filter=flag/flagStatus eq 'flagged'&$top=15&$select=subject,from,receivedDateTime`, token),
+      graphGet(`/me/mailFolders/inbox/messages?$filter=isRead eq false&$top=15&$select=subject,from,receivedDateTime,webLink`, token),
+      graphGet(`/me/mailFolders/inbox/messages?$filter=flag/flagStatus eq 'flagged'&$top=15&$select=subject,from,receivedDateTime,webLink`, token),
     ]);
     mailMessages = mergeMailLists(unread.value, flagged.value);
 
@@ -190,83 +190,39 @@ function mailItemHtml(m) {
     : m.unread
     ? '<span class="unread-dot"></span>'
     : '<span class="dot-spacer"></span>';
-  const notes = mailComments.filter((c) => c.refId === m.id).map(commentHtml).join("");
   return `
-    <div class="mail-item-wrap">
+    <div class="note-item">
       <div class="item-row">
         ${indicator}
         <div class="item-main">
-          <div class="item-title">${escapeHtml(m.subject || "(no subject)")}</div>
+          <div class="item-title">${titleLink(m.subject || "(no subject)", m.webLink)}</div>
           <div class="item-sub">${escapeHtml(m.from?.emailAddress?.name || "")}</div>
         </div>
         <div class="item-time">${time}</div>
       </div>
-      <div class="mail-notes">
-        ${notes}
-        <button class="cmt-toggle" type="button">&#43; note</button>
-        <div class="cmt-add">
-          <input class="cmt-input" type="text" placeholder="Add a note…" />
-          <button class="cmt-save" type="button" data-id="${escapeAttr(m.id)}">Save</button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function commentHtml(c) {
-  return `
-    <div class="cmt">
-      <span class="cmt-text">${escapeHtml(c.text)}</span>
-      <span class="cmt-meta">${escapeHtml(formatAuthor(c))}</span>
+      ${commentsBlockHtml("mail", m.id, mailComments)}
     </div>
   `;
 }
 
 function wireMail(body) {
-  body.addEventListener("click", async (e) => {
+  body.addEventListener("click", (e) => {
     const chip = e.target.closest(".chip");
     if (chip) {
       mailFilter = chip.dataset.filter;
       drawMail(body);
-      return;
-    }
-    const toggle = e.target.closest(".cmt-toggle");
-    if (toggle) {
-      const wrap = toggle.closest(".mail-item-wrap");
-      wrap.classList.add("commenting");
-      wrap.querySelector(".cmt-input").focus();
-      return;
-    }
-    const save = e.target.closest(".cmt-save");
-    if (save) {
-      await submitComment(body, save.closest(".mail-item-wrap"), save.dataset.id);
     }
   });
-  body.addEventListener("keydown", async (e) => {
-    if (e.key === "Enter" && e.target.matches(".cmt-input")) {
-      e.preventDefault();
-      const wrap = e.target.closest(".mail-item-wrap");
-      await submitComment(body, wrap, wrap.querySelector(".cmt-save").dataset.id);
-    }
-  });
-}
-
-async function submitComment(body, wrap, refId) {
-  const input = wrap.querySelector(".cmt-input");
-  const text = input.value.trim();
-  if (!text) return;
-  input.disabled = true;
-  try {
-    const comment = await addComment("mail", refId, text);
+  wireCommentActions(body, (comment) => {
     mailComments.push(comment);
     drawMail(body);
-  } catch (err) {
-    input.disabled = false;
-    console.error("Failed to save comment:", err);
-  }
+  });
 }
 
 // ---------- Calendar ----------
+
+let calendarEvents = [];
+let calendarComments = [];
 
 export async function initOutlookCalendar() {
   await initOutlookPanel(
@@ -283,30 +239,52 @@ async function renderCalendar(body, token, btnId) {
     const now = new Date();
     const in14 = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
     const data = await graphGet(
-      `/me/calendarview?startDateTime=${now.toISOString()}&endDateTime=${in14.toISOString()}&$orderby=start/dateTime&$top=10&$select=subject,start,location`,
+      `/me/calendarview?startDateTime=${now.toISOString()}&endDateTime=${in14.toISOString()}&$orderby=start/dateTime&$top=10&$select=id,subject,start,location,webLink`,
       token
     );
+    calendarEvents = data.value;
 
-    body.innerHTML = data.value.length
-      ? data.value.map(eventRowHtml).join("")
-      : `<div class="empty-state">Nothing on the calendar in the next 14 days.</div>`;
-    appendSignOut(body);
+    try {
+      calendarComments = await loadComments("calendar");
+    } catch (err) {
+      calendarComments = [];
+      console.error("Couldn't load calendar comments:", err);
+    }
+
+    if (!body.dataset.wired) {
+      wireCommentActions(body, (comment) => {
+        calendarComments.push(comment);
+        drawCalendar(body);
+      });
+      body.dataset.wired = "1";
+    }
+    drawCalendar(body);
   } catch (err) {
     showError(body, btnId, "Couldn't load calendar.", err.message);
   }
 }
 
-function eventRowHtml(ev) {
+function drawCalendar(body) {
+  body.innerHTML = calendarEvents.length
+    ? calendarEvents.map(eventItemHtml).join("")
+    : `<div class="empty-state">Nothing on the calendar in the next 14 days.</div>`;
+  appendSignOut(body);
+}
+
+function eventItemHtml(ev) {
   const start = new Date(ev.start.dateTime + "Z");
   const time = start.toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   return `
-    <div class="item-row">
-      <span class="dot-spacer"></span>
-      <div class="item-main">
-        <div class="item-title">${escapeHtml(ev.subject || "(untitled)")}</div>
-        <div class="item-sub">${escapeHtml(ev.location?.displayName || "")}</div>
+    <div class="note-item">
+      <div class="item-row">
+        <span class="dot-spacer"></span>
+        <div class="item-main">
+          <div class="item-title">${titleLink(ev.subject || "(untitled)", ev.webLink)}</div>
+          <div class="item-sub">${escapeHtml(ev.location?.displayName || "")}</div>
+        </div>
+        <div class="item-time">${time}</div>
       </div>
-      <div class="item-time">${time}</div>
+      ${commentsBlockHtml("calendar", ev.id, calendarComments)}
     </div>
   `;
 }
@@ -352,4 +330,12 @@ function escapeHtml(str) {
 
 function escapeAttr(str) {
   return String(str ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
+// Links a title to its Outlook web deep link (webLink), opening in a new tab.
+// Outlook on the web is the reliable target; if the desktop app is set as the
+// default handler the OS can still capture it. Falls back to plain text.
+function titleLink(text, webLink) {
+  if (!webLink) return escapeHtml(text);
+  return `<a class="item-link" href="${escapeAttr(webLink)}" target="_blank" rel="noopener">${escapeHtml(text)}</a>`;
 }

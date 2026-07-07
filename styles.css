@@ -110,6 +110,15 @@ a { color: var(--accent-ink); }
   margin: 0 auto;
 }
 
+/* Masonry mode (added by js/masonry.js when supported): each window spans a
+   number of small rows equal to its own content height, and dense flow packs
+   shorter panels alongside taller ones. */
+.dashboard.masonry {
+  grid-auto-rows: 8px;
+  align-items: start;
+  grid-auto-flow: row dense;
+}
+
 .patch {
   grid-column: span 6;
   background: var(--tint);
@@ -119,7 +128,7 @@ a { color: var(--accent-ink); }
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 260px;
+  min-height: 180px;
   overflow: hidden;
   box-shadow: 0 2px 10px rgba(46,58,48,0.05);
 }
@@ -136,7 +145,7 @@ a { color: var(--accent-ink); }
 
 .patch--wide { grid-column: span 12; }
 .patch--narrow { grid-column: span 4; }
-.patch--tall { min-height: 420px; }
+.patch--tall { min-height: 300px; }
 
 .patch-tab {
   position: absolute;
@@ -471,11 +480,13 @@ textarea { resize: vertical; min-height: 50px; }
 .chip:hover { color: var(--ink); background: transparent; border-color: var(--ink); }
 .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-/* Per-email notes / comments */
-.mail-item-wrap { border-bottom: 1px solid var(--line); padding-bottom: 4px; }
-.mail-item-wrap:last-child { border-bottom: none; }
-.mail-item-wrap .item-row { border-bottom: none; }
-.mail-notes { padding: 0 0 4px 16px; }
+/* Notes / comments (Inbox + Calendar items) */
+.note-item { border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+.note-item:last-child { border-bottom: none; }
+.note-item .item-row { border-bottom: none; }
+.item-link { color: inherit; text-decoration: none; }
+.item-link:hover { color: var(--accent-ink); text-decoration: underline; }
+.notes { padding: 0 0 2px 16px; }
 .cmt {
   display: flex;
   flex-direction: column;
@@ -498,8 +509,8 @@ textarea { resize: vertical; min-height: 50px; }
 }
 .cmt-toggle:hover { color: var(--accent-ink); background: none; }
 .cmt-add { display: none; gap: 6px; margin-top: 4px; }
-.mail-item-wrap.commenting .cmt-add { display: flex; }
-.mail-item-wrap.commenting .cmt-toggle { display: none; }
+.notes.commenting .cmt-add { display: flex; }
+.notes.commenting .cmt-toggle { display: none; }
 .cmt-add .cmt-input { flex: 1; font-size: 12.5px; padding: 5px 8px; }
 .cmt-add .cmt-save { flex-shrink: 0; }
 

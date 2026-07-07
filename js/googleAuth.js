@@ -16,6 +16,14 @@ let tokenClient;
 let accessToken = null;
 let tokenExpiry = 0;
 let currentEmail = null;
+let currentScope = "";
+
+// The Drive scope the data panels need. Google's granular consent lets a user
+// approve email but decline Drive, which yields a token that 403s on Drive —
+// so we treat a token without this scope as not signed in.
+function hasDriveScope(scope) {
+  return (scope || "").includes("drive.file");
+}
 
 function loadGis() {
   return new Promise((resolve) => {
@@ -31,7 +39,7 @@ function persist() {
   try {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ accessToken, tokenExpiry, email: currentEmail })
+      JSON.stringify({ accessToken, tokenExpiry, email: currentEmail, scope: currentScope })
     );
   } catch (_) {}
 }
@@ -41,8 +49,15 @@ function restore() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const saved = JSON.parse(raw);
-    // Keep a small safety margin so we don't hand back a token about to expire.
-    if (saved.accessToken && Date.now() < saved.tokenExpiry - 30000) return saved;
+    // Keep a small safety margin so we don't hand back a token about to expire,
+    // and reject a cached token that never got Drive access granted.
+    if (
+      saved.accessToken &&
+      Date.now() < saved.tokenExpiry - 30000 &&
+      hasDriveScope(saved.scope)
+    ) {
+      return saved;
+    }
   } catch (_) {}
   return null;
 }
@@ -74,8 +89,16 @@ export async function requireGoogleAuth(onReady) {
       gate.style.display = "flex";
       return;
     }
+    if (!hasDriveScope(resp.scope)) {
+      // The user approved sign-in but not Drive — the data panels can't work.
+      msg.textContent =
+        "This dashboard needs Google Drive access. Click Connect again and tick the Google Drive permission.";
+      gate.style.display = "flex";
+      return;
+    }
     accessToken = resp.access_token;
     tokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
+    currentScope = resp.scope;
     currentEmail = await fetchEmail(accessToken);
     persist();
     document.getElementById("user-email").textContent = currentEmail;
@@ -100,6 +123,7 @@ export async function requireGoogleAuth(onReady) {
     accessToken = saved.accessToken;
     tokenExpiry = saved.tokenExpiry;
     currentEmail = saved.email;
+    currentScope = saved.scope;
     document.getElementById("user-email").textContent = currentEmail;
     gate.style.display = "none";
     onReady({ email: currentEmail });
@@ -126,6 +150,7 @@ export function getAccessToken() {
       if (resp.error) return reject(new Error(resp.error));
       accessToken = resp.access_token;
       tokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
+      if (resp.scope) currentScope = resp.scope;
       persist();
       resolve(accessToken);
     };
