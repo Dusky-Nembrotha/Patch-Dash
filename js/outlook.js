@@ -60,7 +60,17 @@ async function getTokenSilent() {
 // Full-page redirect to Microsoft and back — works even when popups are
 // blocked. On return, handleRedirectOnce() completes it and the panels load.
 function startSignIn() {
-  getMsal().loginRedirect({ scopes: CONFIG.microsoft.scopes });
+  // prompt:select_account lets the user pick/switch which Microsoft account
+  // to use, rather than silently reusing an existing session.
+  getMsal().loginRedirect({ scopes: CONFIG.microsoft.scopes, prompt: "select_account" });
+}
+
+// Signs out of Microsoft for this app, then returns to the dashboard where
+// the Outlook panels go back to the Connect state.
+function signOutOutlook() {
+  const client = getMsal();
+  const account = client.getActiveAccount() || client.getAllAccounts()[0];
+  client.logoutRedirect({ account, postLogoutRedirectUri: CONFIG.microsoft.redirectUri });
 }
 
 async function graphGet(path, token) {
@@ -112,11 +122,10 @@ async function renderMail(body, token, btnId) {
     ]);
 
     const merged = mergeMailLists(unread.value, flagged.value);
-    if (!merged.length) {
-      body.innerHTML = `<div class="empty-state">Inbox zero — no unread or flagged mail.</div>`;
-      return;
-    }
-    body.innerHTML = merged.map(mailRowHtml).join("");
+    body.innerHTML = merged.length
+      ? merged.map(mailRowHtml).join("")
+      : `<div class="empty-state">Inbox zero — no unread or flagged mail.</div>`;
+    appendSignOut(body);
   } catch (err) {
     showError(body, btnId, "Couldn't load Outlook mail.", err.message);
   }
@@ -165,11 +174,10 @@ async function renderCalendar(body, token, btnId) {
       token
     );
 
-    if (!data.value.length) {
-      body.innerHTML = `<div class="empty-state">Nothing on the calendar in the next 14 days.</div>`;
-      return;
-    }
-    body.innerHTML = data.value.map(eventRowHtml).join("");
+    body.innerHTML = data.value.length
+      ? data.value.map(eventRowHtml).join("")
+      : `<div class="empty-state">Nothing on the calendar in the next 14 days.</div>`;
+    appendSignOut(body);
   } catch (err) {
     showError(body, btnId, "Couldn't load calendar.", err.message);
   }
@@ -194,6 +202,21 @@ function eventRowHtml(ev) {
 
 function connectPrompt(btnId, text) {
   return `<div class="empty-state">${text}<br><button class="connect-btn" id="${btnId}">Connect Outlook</button></div>`;
+}
+
+// Appends a "signed in as … · Sign out" footer to a loaded Outlook panel.
+function appendSignOut(body) {
+  const account = getMsal().getActiveAccount() || getMsal().getAllAccounts()[0];
+  const foot = document.createElement("div");
+  foot.className = "panel-foot";
+  foot.innerHTML =
+    (account ? `<span class="panel-foot-who">${escapeHtml(account.username)}</span> · ` : "") +
+    `<a href="#" class="outlook-signout">Sign out</a>`;
+  foot.querySelector(".outlook-signout").addEventListener("click", (e) => {
+    e.preventDefault();
+    signOutOutlook();
+  });
+  body.appendChild(foot);
 }
 
 // Shows an error and a button to retry the sign-in (e.g. token went stale).
