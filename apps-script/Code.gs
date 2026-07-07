@@ -235,29 +235,28 @@ function getAttendees(apiKey, eventId) {
 
 // ---------- Meta (Facebook / Instagram) ----------
 
-// Flip to true once Meta has approved pages_messaging / instagram_manage_messages
-var META_REVIEW_APPROVED = false;
-
+// Reads recent Page and Instagram conversations. Turns on automatically once
+// META_PAGE_ACCESS_TOKEN + META_PAGE_ID are set in Script Properties — no
+// code change needed. META_IG_BUSINESS_ID is optional (adds Instagram DMs).
 function getMetaMessages(props) {
-  if (!META_REVIEW_APPROVED) {
-    return { pending: true };
-  }
-
   var pageToken = props.getProperty("META_PAGE_ACCESS_TOKEN");
   var pageId = props.getProperty("META_PAGE_ID");
   var igId = props.getProperty("META_IG_BUSINESS_ID");
 
-  var fbRes = UrlFetchApp.fetch(
-    "https://graph.facebook.com/v19.0/" + pageId + "/conversations?fields=participants,snippet,updated_time&access_token=" + pageToken,
-    { muteHttpExceptions: true }
-  );
-  var fbJson = JSON.parse(fbRes.getContentText());
+  if (!pageToken || !pageId) {
+    return { pending: true };
+  }
 
-  var igRes = UrlFetchApp.fetch(
-    "https://graph.facebook.com/v19.0/" + igId + "/conversations?platform=instagram&fields=participants,snippet,updated_time&access_token=" + pageToken,
-    { muteHttpExceptions: true }
-  );
-  var igJson = JSON.parse(igRes.getContentText());
+  function conversations(id, platformParam) {
+    var url =
+      "https://graph.facebook.com/v19.0/" + id + "/conversations?fields=participants,snippet,updated_time" +
+      (platformParam ? "&platform=instagram" : "") +
+      "&access_token=" + encodeURIComponent(pageToken);
+    var res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    var json = JSON.parse(res.getContentText());
+    if (json.error) throw json.error.message || "Meta API error";
+    return json.data || [];
+  }
 
   function shape(list, platform) {
     return (list || []).map(function (c) {
@@ -271,9 +270,16 @@ function getMetaMessages(props) {
     });
   }
 
-  var messages = shape(fbJson.data, "facebook").concat(shape(igJson.data, "instagram"));
-  messages.sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
-  return messages;
+  try {
+    var messages = shape(conversations(pageId, false), "facebook");
+    if (igId) {
+      messages = messages.concat(shape(conversations(igId, true), "instagram"));
+    }
+    messages.sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
+    return messages;
+  } catch (err) {
+    return { error: String(err) };
+  }
 }
 
 function jsonOutput(obj) {

@@ -13,18 +13,21 @@ export async function initSocial() {
     const json = await res.json();
 
     if (json.pending) {
-      body.innerHTML = pendingReviewHtml();
+      body.innerHTML = notConnectedHtml();
       return;
     }
-    if (json.error) throw new Error(json.error);
+    if (json.error) {
+      body.innerHTML = errorHtml("Couldn't load Facebook/Instagram messages.", json.error);
+      return;
+    }
 
     if (!json.length) {
-      body.innerHTML = `<div class="empty-state">No new messages.</div>`;
+      body.innerHTML = `<div class="empty-state">No recent Facebook or Instagram messages.</div>`;
       return;
     }
     body.innerHTML = json.map(rowHtml).join("");
   } catch (err) {
-    body.innerHTML = pendingReviewHtml(err.message);
+    body.innerHTML = errorHtml("Couldn't load Facebook/Instagram messages.", err.message);
   }
 }
 
@@ -42,15 +45,18 @@ function rowHtml(m) {
   `;
 }
 
-function pendingReviewHtml(detail) {
+function notConnectedHtml() {
   return `
     <div class="empty-state">
-      Facebook &amp; Instagram messaging permissions require Meta App Review
-      before live data can show here. Once your app is approved, this
-      panel will populate automatically — no code changes needed.
-      ${detail ? `<span class="fix">${escapeHtml(detail)}</span>` : ""}
+      Facebook &amp; Instagram not connected yet. Add your Meta Page access
+      token and Page ID to the Apps Script properties (SETUP.md step 6) and
+      this panel fills in automatically — no code change needed.
     </div>
   `;
+}
+
+function errorHtml(headline, detail) {
+  return `<div class="error-state">${escapeHtml(headline)}<span class="fix">${escapeHtml(detail)}</span></div>`;
 }
 
 function escapeHtml(str) {
