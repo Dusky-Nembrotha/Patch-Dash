@@ -1,7 +1,7 @@
 import { CONFIG } from "./config.js";
 
 let msalInstance;
-let redirectHandled = false;
+let redirectPromise;
 
 function isConfigured() {
   return CONFIG.microsoft.clientId && !CONFIG.microsoft.clientId.startsWith("YOUR-");
@@ -14,41 +14,45 @@ function getMsal() {
         clientId: CONFIG.microsoft.clientId,
         authority: CONFIG.microsoft.authority,
         redirectUri: CONFIG.microsoft.redirectUri,
+        // Read the sign-in response on the page the redirect lands on, rather
+        // than bouncing back to the initiating URL (which can drop it).
+        navigateToLoginRequestUrl: false,
       },
       cache: { cacheLocation: "localStorage" },
     });
+
+    // Process a returning sign-in redirect once, as soon as the instance
+    // exists, and record the signed-in account as the active one.
+    redirectPromise = msalInstance
+      .handleRedirectPromise()
+      .then((result) => {
+        const account = result?.account || msalInstance.getAllAccounts()[0];
+        if (account) msalInstance.setActiveAccount(account);
+        return result;
+      })
+      .catch((err) => {
+        console.error("Outlook redirect handling failed:", err);
+        return null;
+      });
   }
   return msalInstance;
 }
 
-// Process a returning sign-in redirect exactly once per page load.
-async function handleRedirectOnce() {
-  if (redirectHandled) return;
-  redirectHandled = true;
-  try {
-    await getMsal().handleRedirectPromise();
-  } catch (err) {
-    console.error("Outlook redirect handling failed:", err);
-  }
-}
-
-function currentAccount() {
-  const accounts = getMsal().getAllAccounts();
-  return accounts.length ? accounts[0] : null;
-}
-
 // Returns a Graph token without any user interaction, or null if a fresh
-// sign-in is required (no account, expired session, consent needed, etc.).
+// sign-in is required. Waits for a returning redirect to be processed first.
 async function getTokenSilent() {
-  const account = currentAccount();
+  const client = getMsal();
+  await redirectPromise;
+  const account = client.getActiveAccount() || client.getAllAccounts()[0];
   if (!account) return null;
   try {
-    const res = await getMsal().acquireTokenSilent({
+    const res = await client.acquireTokenSilent({
       scopes: CONFIG.microsoft.scopes,
       account,
     });
     return res.accessToken;
   } catch (err) {
+    console.error("Outlook silent token failed:", err);
     return null;
   }
 }
@@ -75,7 +79,6 @@ async function initOutlookPanel(bodyId, btnId, prompt, render) {
     body.innerHTML = `<div class="empty-state">Outlook isn't set up yet — add your Azure client ID to js/config.js (SETUP.md step 5).</div>`;
     return;
   }
-  await handleRedirectOnce();
   const token = await getTokenSilent();
   if (token) {
     await render(body, token, btnId);
