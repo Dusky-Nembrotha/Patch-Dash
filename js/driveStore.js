@@ -22,19 +22,21 @@ export async function loadCollection(name) {
 }
 
 // Overwrites a whole collection with the given array.
+//
+// Apps Script web apps can't return CORS headers on a POST response, so a
+// normal cross-origin POST is blocked. We send it as a "no-cors" simple
+// request: the write still reaches doPost and happens server-side; we just
+// can't read the reply (fire-and-forget). Callers update local state
+// optimistically and the next load reflects the saved data.
 export async function saveCollection(name, data) {
   const token = await getAccessToken();
   const qs = new URLSearchParams({ action: "save", collection: name, token });
-  const res = await fetch(`${CONFIG.appsScriptUrl}?${qs.toString()}`, {
+  await fetch(`${CONFIG.appsScriptUrl}?${qs.toString()}`, {
     method: "POST",
-    // text/plain keeps this a "simple" CORS request (no preflight, which
-    // Apps Script can't answer). The body is still JSON.
+    mode: "no-cors",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify(data),
   });
-  const json = await res.json().catch(() => ({}));
-  if (json && json.error) throw new Error("Proxy: " + json.error);
-  return json;
 }
 
 export function newId() {

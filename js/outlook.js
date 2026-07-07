@@ -263,10 +263,11 @@ function wireMail(body) {
       await applyMailMeta(body, prio.dataset.id, { priority: !metaFor(prio.dataset.id).priority });
     }
   });
-  wireCommentActions(body, (comment) => {
-    mailComments.push(comment);
-    drawMail(body);
-  });
+  wireCommentActions(
+    body,
+    (comment) => { mailComments.push(comment); drawMail(body); },
+    (id) => { mailComments = mailComments.filter((c) => c.id !== id); drawMail(body); }
+  );
 }
 
 async function applyMailMeta(body, id, patch) {
@@ -314,10 +315,11 @@ async function renderCalendar(body, token, btnId) {
     }
 
     if (!body.dataset.wired) {
-      wireCommentActions(body, (comment) => {
-        calendarComments.push(comment);
-        drawCalendar(body);
-      });
+      wireCommentActions(
+        body,
+        (comment) => { calendarComments.push(comment); drawCalendar(body); },
+        (id) => { calendarComments = calendarComments.filter((c) => c.id !== id); drawCalendar(body); }
+      );
       body.dataset.wired = "1";
     }
     drawCalendar(body);

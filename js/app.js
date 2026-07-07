@@ -10,11 +10,13 @@ import { initOutlookMail, initOutlookCalendar } from "./outlook.js";
 import { initTicketTailor } from "./tickettailor.js";
 import { initSocial } from "./social.js";
 import { initPatchMap } from "./patchmap.js";
+import { initWeather } from "./weather.js";
 
 document.getElementById("sign-out-btn").addEventListener("click", signOut);
 
 initMasonry();
 initWindowDrag();
+initWeather();
 
 requireGoogleAuth(async () => {
   // Restore the saved window arrangement first (shared between users).

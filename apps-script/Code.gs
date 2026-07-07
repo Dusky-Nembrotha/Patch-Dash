@@ -68,15 +68,22 @@ function doPost(e) {
   }
   if (e.parameter.action === "upload") {
     var b64 = e.postData ? e.postData.contents : "";
-    return jsonOutput(uploadFile(e.parameter.filename, e.parameter.mime, b64));
+    return jsonOutput(
+      uploadFile(e.parameter.scope, e.parameter.refId, e.parameter.filename, e.parameter.mime, e.parameter.author, b64)
+    );
   }
   return jsonOutput({ error: "unknown action" });
 }
 
-// Saves a base64-encoded file to an "attachments" subfolder in the shared
-// Drive and returns its id. Link-viewable so both users can see it.
-function uploadFile(filename, mime, base64) {
+// Saves a base64-encoded file to an "attachments" subfolder (link-viewable so
+// both users can see it) AND appends an attachment record to the item's
+// files-<scope> collection — so the browser doesn't need to read the response
+// (it can't, over no-cors); it just reloads the collection.
+function uploadFile(scope, refId, filename, mime, author, base64) {
   if (!base64) return { error: "no data" };
+  var col = safeName("files-" + scope);
+  if (!col) return { error: "bad scope" };
+
   var root = getDataFolder();
   var it = root.getFoldersByName("attachments");
   var folder = it.hasNext() ? it.next() : root.createFolder("attachments");
@@ -86,7 +93,19 @@ function uploadFile(filename, mime, base64) {
   try {
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   } catch (err) {}
-  return { id: file.getId(), name: file.getName(), mime: mime || "" };
+
+  var list = loadCollectionData(col);
+  list.push({
+    id: Utilities.getUuid(),
+    refId: refId || "",
+    fileId: file.getId(),
+    name: file.getName(),
+    mime: mime || "",
+    created_at: new Date().toISOString(),
+    author: author || "",
+  });
+  saveCollectionData(col, JSON.stringify(list));
+  return { ok: true };
 }
 
 // Confirms the caller is one of the allowed users, by checking the Google

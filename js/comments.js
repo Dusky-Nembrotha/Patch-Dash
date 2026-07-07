@@ -64,7 +64,11 @@ export function commentsBlockHtml(scope, refId, allComments) {
     .filter((c) => c.refId === refId)
     .map((c) => {
       const col = userColor(c.authorEmail || c.author);
-      return `<div class="cmt" style="border-left-color:${col}"><span class="cmt-text">${esc(c.text)}</span><span class="cmt-meta" style="color:${col}">${esc(formatAuthor(c))}</span></div>`;
+      return `<div class="cmt" style="border-left-color:${col}">
+          <button class="cmt-del" data-id="${escAttr(c.id)}" title="Delete note">&times;</button>
+          <span class="cmt-text">${esc(c.text)}</span>
+          <span class="cmt-meta" style="color:${col}">${esc(formatAuthor(c))}</span>
+        </div>`;
     })
     .join("");
   return `<div class="notes" data-scope="${escAttr(scope)}" data-ref="${escAttr(refId)}">
@@ -77,10 +81,32 @@ export function commentsBlockHtml(scope, refId, allComments) {
     </div>`;
 }
 
-// Delegated handler for a container holding .notes blocks. onAdded(comment) is
-// called after a comment saves, so the caller can update state and redraw.
-export function wireCommentActions(container, onAdded) {
+// Removes a comment (any user can delete any note).
+export async function removeComment(scope, id) {
+  const list = await loadCollection(collectionFor(scope));
+  await saveCollection(collectionFor(scope), list.filter((c) => c.id !== id));
+}
+
+// Delegated handler for a container holding .notes blocks.
+//  - onAdded(comment) after a note is added
+//  - onRemoved(id) after a note is deleted
+// Both update local state optimistically so the UI reflects the change
+// immediately (saves are fire-and-forget through the proxy).
+export function wireCommentActions(container, onAdded, onRemoved) {
   container.addEventListener("click", async (e) => {
+    const del = e.target.closest(".cmt-del");
+    if (del) {
+      e.preventDefault();
+      const notes = del.closest(".notes");
+      const id = del.dataset.id;
+      if (onRemoved) onRemoved(id);
+      try {
+        await removeComment(notes.dataset.scope, id);
+      } catch (err) {
+        console.error("Failed to delete comment:", err);
+      }
+      return;
+    }
     const toggle = e.target.closest(".cmt-toggle");
     if (toggle) {
       const notes = toggle.closest(".notes");
@@ -106,7 +132,7 @@ async function submitFrom(notes, onAdded) {
   input.disabled = true;
   try {
     const comment = await addComment(notes.dataset.scope, notes.dataset.ref, text);
-    onAdded(comment);
+    if (onAdded) onAdded(comment);
   } catch (err) {
     input.disabled = false;
     console.error("Failed to save comment:", err);

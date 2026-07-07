@@ -68,26 +68,42 @@ a { color: var(--accent-ink); }
   z-index: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 20px;
-  padding: 22px 32px 18px;
+  padding: 18px 32px 16px;
   border-bottom: 1px solid var(--line);
 }
 
 .site-header .brand { display: inline-flex; line-height: 0; }
-.site-header .logo { height: 132px; width: auto; }
+.site-header .logo { height: 180px; width: auto; }
+
+.header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
 
 .site-header .status-line {
-  position: absolute;
-  right: 32px;
-  top: 50%;
-  transform: translateY(-50%);
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--muted);
   text-align: right;
-  line-height: 1.7;
+  line-height: 1.6;
 }
+
+/* ---------- Weather (7-day forecast) ---------- */
+.weather { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.wx-day {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 5px 8px; min-width: 46px;
+  border: 1px solid var(--line); border-radius: 7px; background: var(--surface);
+}
+.wx-dow { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; color: var(--muted); }
+.wx-ico { font-size: 18px; line-height: 1.1; }
+.wx-temp { font-size: 12px; font-weight: 600; color: var(--ink); }
+.wx-lo { color: var(--muted); font-weight: 400; margin-left: 3px; }
+.weather-err { font-size: 11px; color: var(--muted); }
 
 .status-dot {
   display: inline-block;
@@ -547,16 +563,24 @@ textarea { resize: vertical; min-height: 50px; }
 .item-link:hover { color: var(--accent-ink); text-decoration: underline; }
 .notes { padding: 0 0 2px 16px; }
 .cmt {
+  position: relative;
   display: flex;
   flex-direction: column;
   background: rgba(46,58,48,0.04);
   border-left: 2px solid var(--accent);
   border-radius: 3px;
-  padding: 5px 8px;
+  padding: 5px 20px 5px 8px;
   margin-bottom: 4px;
 }
 .cmt-text { font-size: 12.5px; color: var(--ink); white-space: pre-wrap; }
 .cmt-meta { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 3px; }
+.cmt-del {
+  position: absolute; top: 3px; right: 3px;
+  width: 16px; height: 16px; padding: 0;
+  background: none; color: var(--muted); border: none;
+  font-size: 14px; line-height: 1; cursor: pointer;
+}
+.cmt-del:hover { color: #BC5237; background: none; }
 .cmt-toggle {
   background: none;
   color: var(--muted);
@@ -639,20 +663,30 @@ textarea { resize: vertical; min-height: 50px; }
 }
 .attach-add:hover { color: var(--accent-ink); border-color: var(--accent); }
 
+.attach-add.busy { opacity: 0.5; pointer-events: none; }
+
 /* Leaflet layer control on the light theme */
 .leaflet-control-layers { font-family: var(--font-body); font-size: 12px; border-radius: 4px; }
+
+/* Tighter Inbox spacing so the window takes less room */
+#mail-body .note-item { padding-bottom: 1px; }
+#mail-body .item-row { padding: 4px 0; gap: 8px; }
+#mail-body .item-sub { margin-top: 1px; }
+#mail-body .mail-actions { padding: 0 0 3px 12px; gap: 5px; }
+#mail-body .mail-actions .avatar, #mail-body .mail-actions .prio { width: 18px; height: 18px; }
+#mail-body .notes { padding: 0 0 1px 12px; }
+#mail-body .mail-filters { margin: 2px 0 8px; }
+#mail-body .cmt { margin-bottom: 2px; }
 
 /* ---------- Responsive ---------- */
 
 @media (max-width: 1000px) {
   .patch, .patch--narrow { grid-column: span 12; }
   .site-header { flex-direction: column; gap: 12px; align-items: center; }
-  .site-header .status-line {
-    position: static;
-    transform: none;
-    text-align: center;
-  }
-  .site-header .logo { height: 96px; }
+  .header-right { align-items: center; }
+  .site-header .status-line { text-align: center; }
+  .weather { justify-content: center; }
+  .site-header .logo { height: 120px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
