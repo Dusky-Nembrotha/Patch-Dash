@@ -5,6 +5,11 @@ const SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
 ].join(" ");
 
+// Where we stash the access token between page loads. sessionStorage keeps
+// it for the life of the tab (so a refresh doesn't force a re-login) but
+// clears it when the tab closes — a reasonable spot for a ~1h bearer token.
+const STORAGE_KEY = "apw_google_auth";
+
 let tokenClient;
 let accessToken = null;
 let tokenExpiry = 0;
@@ -18,6 +23,32 @@ function loadGis() {
     script.onload = resolve;
     document.head.appendChild(script);
   });
+}
+
+function persist() {
+  try {
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ accessToken, tokenExpiry, email: currentEmail })
+    );
+  } catch (_) {}
+}
+
+function restore() {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    // Keep a small safety margin so we don't hand back a token about to expire.
+    if (saved.accessToken && Date.now() < saved.tokenExpiry - 30000) return saved;
+  } catch (_) {}
+  return null;
+}
+
+function clearStored() {
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+  } catch (_) {}
 }
 
 async function fetchEmail(token) {
@@ -44,6 +75,7 @@ export async function requireGoogleAuth(onReady) {
     accessToken = resp.access_token;
     tokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
     currentEmail = await fetchEmail(accessToken);
+    persist();
     document.getElementById("user-email").textContent = currentEmail;
     gate.style.display = "none";
     onReady({ email: currentEmail });
@@ -59,7 +91,21 @@ export async function requireGoogleAuth(onReady) {
     tokenClient.requestAccessToken({ prompt: "consent" });
   });
 
-  // Try a silent sign-in first, in case this browser already granted access.
+  // Fast path: a valid token from earlier in this tab session — go straight
+  // in, no gate, no Google round-trip.
+  const saved = restore();
+  if (saved) {
+    accessToken = saved.accessToken;
+    tokenExpiry = saved.tokenExpiry;
+    currentEmail = saved.email;
+    document.getElementById("user-email").textContent = currentEmail;
+    gate.style.display = "none";
+    onReady({ email: currentEmail });
+    return;
+  }
+
+  // Otherwise try a silent sign-in (works if this browser already granted
+  // access); the gate stays up until it succeeds or the user connects.
   gate.style.display = "flex";
   tokenClient.requestAccessToken({ prompt: "" });
 }
@@ -74,6 +120,7 @@ export function getAccessToken() {
       if (resp.error) return reject(new Error(resp.error));
       accessToken = resp.access_token;
       tokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
+      persist();
       resolve(accessToken);
     };
     tokenClient.requestAccessToken({ prompt: "" });
@@ -81,6 +128,7 @@ export function getAccessToken() {
 }
 
 export function signOut() {
+  clearStored();
   if (accessToken) {
     google.accounts.oauth2.revoke(accessToken, () => window.location.reload());
   } else {
