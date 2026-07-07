@@ -455,6 +455,54 @@ textarea { resize: vertical; min-height: 50px; }
 
 .connect-btn { margin-top: 8px; }
 
+/* Filter chips (Inbox: All / Unread / Flagged) */
+.mail-filters { display: flex; gap: 6px; margin: 2px 0 12px; }
+.chip {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+.chip:hover { color: var(--ink); background: transparent; border-color: var(--ink); }
+.chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Per-email notes / comments */
+.mail-item-wrap { border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+.mail-item-wrap:last-child { border-bottom: none; }
+.mail-item-wrap .item-row { border-bottom: none; }
+.mail-notes { padding: 0 0 4px 16px; }
+.cmt {
+  display: flex;
+  flex-direction: column;
+  background: rgba(46,58,48,0.04);
+  border-left: 2px solid var(--accent);
+  border-radius: 3px;
+  padding: 5px 8px;
+  margin-bottom: 4px;
+}
+.cmt-text { font-size: 12.5px; color: var(--ink); white-space: pre-wrap; }
+.cmt-meta { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 3px; }
+.cmt-toggle {
+  background: none;
+  color: var(--muted);
+  border: none;
+  padding: 2px 0;
+  font-size: 11px;
+  font-weight: 400;
+  cursor: pointer;
+}
+.cmt-toggle:hover { color: var(--accent-ink); background: none; }
+.cmt-add { display: none; gap: 6px; margin-top: 4px; }
+.mail-item-wrap.commenting .cmt-add { display: flex; }
+.mail-item-wrap.commenting .cmt-toggle { display: none; }
+.cmt-add .cmt-input { flex: 1; font-size: 12.5px; padding: 5px 8px; }
+.cmt-add .cmt-save { flex-shrink: 0; }
+
 /* Signed-in footer (Outlook panels) */
 .panel-foot {
   margin-top: 10px;

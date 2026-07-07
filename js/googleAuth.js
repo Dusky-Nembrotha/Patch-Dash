@@ -133,6 +133,10 @@ export function getAccessToken() {
   });
 }
 
+export function getCurrentEmail() {
+  return currentEmail;
+}
+
 export function signOut() {
   clearStored();
   if (accessToken) {
