@@ -1,33 +1,45 @@
 // ============================================================
-// A Patch Wilder — Apps Script proxy
+// A Patch Wilder — Apps Script proxy + shared data store
 //
-// This runs on Google's servers under your account, not in the browser,
-// so it's the safe place to hold your Ticket Tailor API key and (later)
-// your Meta Page access token. The dashboard calls this instead of
-// calling those APIs directly.
+// Runs on Google's servers under the OWNER's account (Execute as: Me), so:
+//  - it safely holds the Ticket Tailor / Meta keys, and
+//  - it reads/writes the dashboard's data as JSON files in the OWNER's Drive
+//    ("A Patch Wilder Data"), giving every allowed user ONE shared copy.
 //
-// SETUP:
-// 1. Go to script.google.com > New project. Delete the default code and
-//    paste this whole file in.
-// 2. Project Settings (gear icon) > Script Properties > add:
-//      OWNER_EMAIL          = the Google account email you sign in with
-//      TICKET_TAILOR_API_KEY = your Ticket Tailor API key
-// 3. Deploy > New deployment > type: Web app.
-//      Execute as: Me
-//      Who has access: Anyone
-//    Click Deploy, authorize it, and copy the Web App URL.
-// 4. Paste that URL into js/config.js as `appsScriptUrl`.
+// Because data goes through here, the browser never needs Drive access —
+// the front-end only signs the user in (email) to prove who they are.
+//
+// SETUP / Script Properties (gear icon > Project Settings):
+//   OWNER_EMAIL           = the account this runs as
+//   ALLOWED_EMAILS        = (optional) extra comma-separated emails allowed
+//   TICKET_TAILOR_API_KEY = your Ticket Tailor API key
+// Deploy: Web app, Execute as Me, Who has access: Anyone. Re-authorize when
+// prompted (it now needs Drive access). Whenever you change this file:
+//   clasp push  &&  clasp redeploy <deployment-id>
 // ============================================================
 
-function doGet(e) {
-  const props = PropertiesService.getScriptProperties();
-  const token = e.parameter.token;
-  const action = e.parameter.action;
+// Users allowed to read/write the shared store (in addition to OWNER_EMAIL
+// and any ALLOWED_EMAILS script property).
+var DEFAULT_ALLOWED = ["owner@example.com", "user2@example.com"];
 
-  if (!verifyCaller(token, props.getProperty("OWNER_EMAIL"))) {
+var DATA_FOLDER = "A Patch Wilder Data";
+
+function doGet(e) {
+  var props = PropertiesService.getScriptProperties();
+  if (!verifyCaller(e.parameter.token, props)) {
     return jsonOutput({ error: "unauthorized" });
   }
 
+  var action = e.parameter.action;
+
+  if (action === "load") {
+    var name = safeName(e.parameter.collection);
+    if (!name) return jsonOutput({ error: "bad collection" });
+    return jsonOutput(loadCollectionData(name));
+  }
+  if (action === "folderurl") {
+    return jsonOutput({ url: getDataFolder().getUrl() });
+  }
   if (action === "tickettailor") {
     return jsonOutput(getTicketTailorEvents(props.getProperty("TICKET_TAILOR_API_KEY")));
   }
@@ -40,28 +52,86 @@ function doGet(e) {
   return jsonOutput({ error: "unknown action" });
 }
 
-// Confirms the caller really is you, by checking the Google access token
-// they sent matches your own account email. Prevents random internet
-// traffic from using your API keys through this endpoint.
-function verifyCaller(token, ownerEmail) {
-  if (!token || !ownerEmail) return false;
+// Saves are POSTed (the JSON body can be larger than a URL allows). Sent with
+// Content-Type text/plain so the browser treats it as a simple request (no
+// CORS preflight, which Apps Script can't answer).
+function doPost(e) {
+  var props = PropertiesService.getScriptProperties();
+  if (!verifyCaller(e.parameter.token, props)) {
+    return jsonOutput({ error: "unauthorized" });
+  }
+  if (e.parameter.action === "save") {
+    var name = safeName(e.parameter.collection);
+    if (!name) return jsonOutput({ error: "bad collection" });
+    var contents = e.postData ? e.postData.contents : "[]";
+    return jsonOutput(saveCollectionData(name, contents));
+  }
+  return jsonOutput({ error: "unknown action" });
+}
+
+// Confirms the caller is one of the allowed users, by checking the Google
+// access token they sent resolves to an allowed, verified email.
+function verifyCaller(token, props) {
+  if (!token) return false;
+  var owner = (props.getProperty("OWNER_EMAIL") || "").toLowerCase();
+  var extra = (props.getProperty("ALLOWED_EMAILS") || "")
+    .split(",")
+    .map(function (s) { return s.trim().toLowerCase(); })
+    .filter(Boolean);
+  var allowed = [owner].concat(extra, DEFAULT_ALLOWED).filter(Boolean);
   try {
-    const res = UrlFetchApp.fetch(
-      `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${encodeURIComponent(token)}`,
+    var res = UrlFetchApp.fetch(
+      "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=" + encodeURIComponent(token),
       { muteHttpExceptions: true }
     );
-    const info = JSON.parse(res.getContentText());
-    return info.email === ownerEmail && (info.email_verified === "true" || info.email_verified === true);
+    var info = JSON.parse(res.getContentText());
+    var verified = info.email_verified === "true" || info.email_verified === true;
+    return verified && allowed.indexOf((info.email || "").toLowerCase()) !== -1;
   } catch (err) {
     return false;
   }
 }
 
+// ---------- Shared data store (owner's Drive) ----------
+
+function safeName(name) {
+  return /^[a-zA-Z0-9_-]+$/.test(name || "") ? name : null;
+}
+
+function getDataFolder() {
+  var it = DriveApp.getFoldersByName(DATA_FOLDER);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(DATA_FOLDER);
+}
+
+function loadCollectionData(name) {
+  var folder = getDataFolder();
+  var it = folder.getFilesByName(name + ".json");
+  if (!it.hasNext()) return [];
+  try {
+    return JSON.parse(it.next().getBlob().getDataAsString() || "[]");
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveCollectionData(name, contents) {
+  var folder = getDataFolder();
+  var it = folder.getFilesByName(name + ".json");
+  if (it.hasNext()) {
+    it.next().setContent(contents);
+  } else {
+    folder.createFile(name + ".json", contents, "application/json");
+  }
+  return { ok: true };
+}
+
+// ---------- Ticket Tailor ----------
+
 function getTicketTailorEvents(apiKey) {
   if (!apiKey) return { error: "TICKET_TAILOR_API_KEY not set in Script Properties" };
 
-  const basicAuth = Utilities.base64Encode(apiKey + ":");
-  const res = UrlFetchApp.fetch(
+  var basicAuth = Utilities.base64Encode(apiKey + ":");
+  var res = UrlFetchApp.fetch(
     "https://api.tickettailor.com/v1/events?status=published&order_by=start_date&order=asc",
     { headers: { Authorization: "Basic " + basicAuth }, muteHttpExceptions: true }
   );
@@ -70,35 +140,34 @@ function getTicketTailorEvents(apiKey) {
     return { error: "Ticket Tailor error: " + res.getContentText() };
   }
 
-  const json = JSON.parse(res.getContentText());
-  const now = Date.now();
+  var json = JSON.parse(res.getContentText());
+  var now = Date.now();
 
   return (json.data || [])
-    .filter((ev) => {
-      const start = new Date((ev.start && (ev.start.iso || ev.start.date)) || 0).getTime();
+    .filter(function (ev) {
+      var start = new Date((ev.start && (ev.start.iso || ev.start.date)) || 0).getTime();
       return start >= now;
     })
-    .map((ev) => ({
-      id: ev.id,
-      name: ev.name,
-      start: ev.start,
-      venue: ev.venue ? ev.venue.name : null,
-      tickets_sold: ev.total_issued_tickets || null,
-    }));
+    .map(function (ev) {
+      return {
+        id: ev.id,
+        name: ev.name,
+        start: ev.start,
+        venue: ev.venue ? ev.venue.name : null,
+        tickets_sold: ev.total_issued_tickets || null,
+      };
+    });
 }
 
-// Returns attendee names/ticket types for a single event, for the
-// dashboard's expandable event rows.
-// NOTE: Ticket Tailor's exact field names for issued_tickets aren't
-// fully documented publicly — if names/ticket types show up blank once
-// you test this, open the Apps Script "Executions" log, look at the raw
-// JSON in the error, and adjust the field names below to match.
+// Returns attendee names/ticket types for a single event. Ticket Tailor's
+// exact field names for issued_tickets aren't fully documented; adjust the
+// mapping below against real data if names/types show blank.
 function getAttendees(apiKey, eventId) {
   if (!apiKey) return { error: "TICKET_TAILOR_API_KEY not set in Script Properties" };
   if (!eventId) return { error: "Missing event_id" };
 
-  const basicAuth = Utilities.base64Encode(apiKey + ":");
-  const res = UrlFetchApp.fetch(
+  var basicAuth = Utilities.base64Encode(apiKey + ":");
+  var res = UrlFetchApp.fetch(
     "https://api.tickettailor.com/v1/issued_tickets?event_id=" + encodeURIComponent(eventId) + "&limit=100",
     { headers: { Authorization: "Basic " + basicAuth }, muteHttpExceptions: true }
   );
@@ -107,49 +176,53 @@ function getAttendees(apiKey, eventId) {
     return { error: "Ticket Tailor error: " + res.getContentText() };
   }
 
-  const json = JSON.parse(res.getContentText());
+  var json = JSON.parse(res.getContentText());
 
   return (json.data || [])
-    .filter((t) => t.status !== "voided" && t.status !== "void")
-    .map((t) => ({
-      name:
-        t.holder_name ||
-        [t.first_name, t.last_name].filter(Boolean).join(" ") ||
-        t.buyer_name ||
-        "Unnamed attendee",
-      ticket_type: (t.ticket_type && t.ticket_type.name) || t.ticket_type_name || null,
-      status: t.status || null,
-      checked_in: !!t.checked_in_at,
-    }));
+    .filter(function (t) { return t.status !== "voided" && t.status !== "void"; })
+    .map(function (t) {
+      return {
+        name:
+          t.holder_name ||
+          [t.first_name, t.last_name].filter(Boolean).join(" ") ||
+          t.buyer_name ||
+          "Unnamed attendee",
+        ticket_type: (t.ticket_type && t.ticket_type.name) || t.ticket_type_name || null,
+        status: t.status || null,
+        checked_in: !!t.checked_in_at,
+      };
+    });
 }
 
+// ---------- Meta (Facebook / Instagram) ----------
+
 // Flip to true once Meta has approved pages_messaging / instagram_manage_messages
-const META_REVIEW_APPROVED = false;
+var META_REVIEW_APPROVED = false;
 
 function getMetaMessages(props) {
   if (!META_REVIEW_APPROVED) {
     return { pending: true };
   }
 
-  const pageToken = props.getProperty("META_PAGE_ACCESS_TOKEN");
-  const pageId = props.getProperty("META_PAGE_ID");
-  const igId = props.getProperty("META_IG_BUSINESS_ID");
+  var pageToken = props.getProperty("META_PAGE_ACCESS_TOKEN");
+  var pageId = props.getProperty("META_PAGE_ID");
+  var igId = props.getProperty("META_IG_BUSINESS_ID");
 
-  const fbRes = UrlFetchApp.fetch(
-    `https://graph.facebook.com/v19.0/${pageId}/conversations?fields=participants,snippet,updated_time&access_token=${pageToken}`,
+  var fbRes = UrlFetchApp.fetch(
+    "https://graph.facebook.com/v19.0/" + pageId + "/conversations?fields=participants,snippet,updated_time&access_token=" + pageToken,
     { muteHttpExceptions: true }
   );
-  const fbJson = JSON.parse(fbRes.getContentText());
+  var fbJson = JSON.parse(fbRes.getContentText());
 
-  const igRes = UrlFetchApp.fetch(
-    `https://graph.facebook.com/v19.0/${igId}/conversations?platform=instagram&fields=participants,snippet,updated_time&access_token=${pageToken}`,
+  var igRes = UrlFetchApp.fetch(
+    "https://graph.facebook.com/v19.0/" + igId + "/conversations?platform=instagram&fields=participants,snippet,updated_time&access_token=" + pageToken,
     { muteHttpExceptions: true }
   );
-  const igJson = JSON.parse(igRes.getContentText());
+  var igJson = JSON.parse(igRes.getContentText());
 
   function shape(list, platform) {
-    return (list || []).map((c) => {
-      const other = (c.participants && c.participants.data || []).find((p) => p.id !== pageId);
+    return (list || []).map(function (c) {
+      var other = (c.participants && c.participants.data || []).find(function (p) { return p.id !== pageId; });
       return {
         platform: platform,
         from: other ? other.username || other.name : "Unknown",
@@ -159,8 +232,8 @@ function getMetaMessages(props) {
     });
   }
 
-  const messages = shape(fbJson.data, "facebook").concat(shape(igJson.data, "instagram"));
-  messages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  var messages = shape(fbJson.data, "facebook").concat(shape(igJson.data, "instagram"));
+  messages.sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
   return messages;
 }
 
