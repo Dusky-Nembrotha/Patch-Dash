@@ -259,6 +259,47 @@ a { color: var(--lichen); }
   flex-shrink: 0;
 }
 
+/* ---------- Ticket Tailor attendees (expandable) ---------- */
+
+.tt-event-head { cursor: pointer; }
+.tt-event-head:hover .item-title { color: var(--lichen); }
+.tt-caret {
+  width: 6px;
+  flex-shrink: 0;
+  color: var(--mist);
+  font-size: 10px;
+  line-height: 1.6;
+  transition: transform 0.12s ease;
+}
+.tt-event-head.open .tt-caret { transform: rotate(90deg); }
+
+.tt-attendees {
+  padding: 4px 0 10px 16px;
+  border-bottom: 1px solid rgba(159,179,166,0.12);
+}
+.tt-attendee-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--lichen);
+  margin-bottom: 6px;
+}
+.tt-attendee {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 12.5px;
+}
+.tt-attendee-name { color: var(--paper); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-attendee-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--mist);
+  flex-shrink: 0;
+}
+
 /* ---------- Buttons / inputs ---------- */
 
 button, .btn {
