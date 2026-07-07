@@ -1,4 +1,5 @@
 import { requireGoogleAuth, signOut } from "./googleAuth.js";
+import { getFolderUrl } from "./driveStore.js";
 import { initMap } from "./map.js";
 import { initTodo } from "./todo.js";
 import { initIdeas } from "./ideas.js";
@@ -29,5 +30,15 @@ requireGoogleAuth(async () => {
     } catch (err) {
       console.error("Widget failed to initialize:", err);
     }
+  }
+
+  // Point the Drive-backed windows' source links at the actual data folder.
+  try {
+    const folderUrl = await getFolderUrl();
+    document.querySelectorAll('.patch-source[data-source="drive"]').forEach((a) => {
+      a.href = folderUrl;
+    });
+  } catch (err) {
+    console.error("Could not resolve Drive folder link:", err);
   }
 });

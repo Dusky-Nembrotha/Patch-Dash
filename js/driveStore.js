@@ -100,3 +100,10 @@ export async function saveCollection(name, data) {
 export function newId() {
   return crypto.randomUUID();
 }
+
+// Resolves (creating if needed) the data folder and returns a URL that opens
+// it directly in Google Drive — used by the Drive-backed panels' source links.
+export async function getFolderUrl() {
+  const id = await ensureFolder();
+  return `https://drive.google.com/drive/folders/${id}`;
+}
