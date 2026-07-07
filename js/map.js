@@ -5,17 +5,34 @@ let map;
 let points = [];
 const markers = {};
 
+const OS_KEY = "2dSIGJBjO8WVJuFxhgWj1tvnAQhCXDy8";
+
 export async function initMap() {
   map = L.map("map", { zoomControl: true });
 
-  // Google satellite imagery. (Note: this is Google's tile endpoint, not the
-  // official Maps API — fine for a private dashboard. Swap lyrs=s -> lyrs=y
-  // for a hybrid view with road/place labels.)
-  L.tileLayer("https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", {
+  // Google satellite imagery. (Google's tile endpoint, not the official Maps
+  // API — fine for a private dashboard.)
+  const satellite = L.tileLayer("https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", {
     subdomains: ["mt0", "mt1", "mt2", "mt3"],
     attribution: "Imagery &copy; Google",
     maxZoom: 21,
-  }).addTo(map);
+  });
+
+  // Ordnance Survey Maps API — Outdoor (leisure) raster tiles.
+  const osOutdoor = L.tileLayer(
+    `https://api.os.uk/maps/raster/v1/zxy/Outdoor_3857/{z}/{x}/{y}.png?key=${OS_KEY}`,
+    {
+      attribution: "Contains OS data &copy; Crown copyright &amp; database right",
+      maxZoom: 20,
+    }
+  );
+
+  satellite.addTo(map); // default basemap
+  L.control.layers(
+    { "Satellite": satellite, "OS Outdoor": osOutdoor },
+    {},
+    { collapsed: false }
+  ).addTo(map);
 
   // Site boundary (red line), drawn from the imported KMZ.
   const boundary = L.geoJSON(SITE_BOUNDARY, {

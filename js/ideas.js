@@ -1,10 +1,17 @@
 import { loadCollection, saveCollection, newId } from "./driveStore.js";
 import { makeSortable } from "./reorder.js";
+import { loadAttachments, attachmentsHtml, wireAttachments } from "./attachments.js";
 
 let ideas = [];
+let ideaFiles = [];
 
 export async function initIdeas() {
   ideas = await loadCollection("ideas");
+  try { ideaFiles = await loadAttachments("ideas"); } catch (_) { ideaFiles = []; }
+  wireAttachments(document.getElementById("ideas-list"), "ideas", async () => {
+    ideaFiles = await loadAttachments("ideas");
+    render();
+  });
   render();
 
   document.getElementById("idea-add-btn").addEventListener("click", async () => {
@@ -59,6 +66,7 @@ function cardHtml(idea) {
       <div class="idea-meta">${date}
         <button class="del" id="idea-del-${idea.id}" style="float:right;">&times;</button>
       </div>
+      ${attachmentsHtml("ideas", idea.id, ideaFiles)}
     </div>
   `;
 }

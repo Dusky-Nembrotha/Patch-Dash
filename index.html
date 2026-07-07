@@ -36,7 +36,7 @@
 <main class="dashboard">
 
   <!-- MAP -->
-  <section class="patch patch--wide patch--tall theme-green">
+  <section class="patch patch--wide patch--tall theme-green" data-panel="map">
     <span class="patch-tab">Field Map</span>
     <a class="patch-source" data-source="drive" href="https://drive.google.com/drive/my-drive" target="_blank" rel="noopener" title="Open the data folder in Google Drive">↗</a>
     <div class="patch-header">
@@ -48,7 +48,7 @@
   </section>
 
   <!-- OUTLOOK MAIL -->
-  <section class="patch patch--narrow theme-coral">
+  <section class="patch patch--narrow theme-coral" data-panel="inbox">
     <span class="patch-tab">Inbox</span>
     <a class="patch-source" href="https://outlook.office.com/mail/" target="_blank" rel="noopener" title="Open in Outlook">↗</a>
     <div class="patch-header"><h2>Flagged &amp; unread</h2></div>
@@ -58,7 +58,7 @@
   </section>
 
   <!-- CALENDAR -->
-  <section class="patch patch--narrow theme-blue">
+  <section class="patch patch--narrow theme-blue" data-panel="calendar">
     <span class="patch-tab">Calendar</span>
     <a class="patch-source" href="https://outlook.office.com/calendar/" target="_blank" rel="noopener" title="Open in Outlook Calendar">↗</a>
     <div class="patch-header"><h2>Upcoming events</h2></div>
@@ -68,7 +68,7 @@
   </section>
 
   <!-- TICKET TAILOR -->
-  <section class="patch patch--narrow theme-violet">
+  <section class="patch patch--narrow theme-violet" data-panel="tickettailor">
     <span class="patch-tab">Ticket Tailor</span>
     <a class="patch-source" href="https://app.tickettailor.com/" target="_blank" rel="noopener" title="Open Ticket Tailor">↗</a>
     <div class="patch-header"><h2>Booked events</h2></div>
@@ -78,7 +78,7 @@
   </section>
 
   <!-- SOCIAL -->
-  <section class="patch theme-pink">
+  <section class="patch theme-pink" data-panel="messages">
     <span class="patch-tab">Messages</span>
     <a class="patch-source" href="https://business.facebook.com/latest/inbox/" target="_blank" rel="noopener" title="Open Meta Business Suite inbox">↗</a>
     <div class="patch-header"><h2>Facebook &amp; Instagram</h2></div>
@@ -88,7 +88,7 @@
   </section>
 
   <!-- TO DO -->
-  <section class="patch patch--tall theme-amber">
+  <section class="patch patch--tall theme-amber" data-panel="todo">
     <span class="patch-tab">Action</span>
     <a class="patch-source" data-source="drive" href="https://drive.google.com/drive/my-drive" target="_blank" rel="noopener" title="Open the data folder in Google Drive">↗</a>
     <div class="patch-header">
@@ -101,7 +101,7 @@
   </section>
 
   <!-- IDEAS -->
-  <section class="patch patch--narrow patch--tall theme-teal">
+  <section class="patch patch--narrow patch--tall theme-teal" data-panel="ideas">
     <span class="patch-tab">Ideas</span>
     <a class="patch-source" data-source="drive" href="https://drive.google.com/drive/my-drive" target="_blank" rel="noopener" title="Open the data folder in Google Drive">↗</a>
     <div class="patch-header"><h2>Ideas</h2></div>
@@ -118,7 +118,7 @@
   </section>
 
   <!-- FUNDING -->
-  <section class="patch patch--narrow patch--tall theme-lime">
+  <section class="patch patch--narrow patch--tall theme-lime" data-panel="funding">
     <span class="patch-tab">Funding</span>
     <a class="patch-source" data-source="drive" href="https://drive.google.com/drive/my-drive" target="_blank" rel="noopener" title="Open the data folder in Google Drive">↗</a>
     <div class="patch-header"><h2>Funding initiatives</h2></div>
@@ -141,6 +141,25 @@
       </div>
       <button id="funding-add-btn" style="margin-bottom:12px;">Add</button>
       <div id="funding-list"></div>
+    </div>
+  </section>
+
+  <!-- PATCH MAP (draw-on) -->
+  <section class="patch patch--narrow patch--tall theme-blue" data-panel="patchmap">
+    <span class="patch-tab">Patch Map</span>
+    <div class="patch-header">
+      <div class="pm-tools">
+        <button class="pm-tool active" data-tool="draw" title="Draw">✏️ Draw</button>
+        <button class="pm-tool" data-tool="erase" title="Erase">🧽 Erase</button>
+        <span class="pm-colours"></span>
+        <button class="ghost" id="pm-clear" style="padding:4px 8px; font-size:11.5px;">Clear all</button>
+      </div>
+    </div>
+    <div class="patch-body">
+      <div class="pm-stage">
+        <img id="pm-image" src="assets/patch-map.jpg" alt="Patch map" />
+        <canvas id="pm-canvas"></canvas>
+      </div>
     </div>
   </section>
 

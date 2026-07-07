@@ -1,6 +1,7 @@
 import { requireGoogleAuth, signOut } from "./googleAuth.js";
 import { getFolderUrl } from "./driveStore.js";
 import { initMasonry } from "./masonry.js";
+import { initWindowDrag, applySavedLayout } from "./windows.js";
 import { initMap } from "./map.js";
 import { initTodo } from "./todo.js";
 import { initIdeas } from "./ideas.js";
@@ -8,12 +9,17 @@ import { initFunding } from "./funding.js";
 import { initOutlookMail, initOutlookCalendar } from "./outlook.js";
 import { initTicketTailor } from "./tickettailor.js";
 import { initSocial } from "./social.js";
+import { initPatchMap } from "./patchmap.js";
 
 document.getElementById("sign-out-btn").addEventListener("click", signOut);
 
 initMasonry();
+initWindowDrag();
 
 requireGoogleAuth(async () => {
+  // Restore the saved window arrangement first (shared between users).
+  await applySavedLayout();
+
   // Each widget fails independently — one broken integration
   // should never take the rest of the dashboard down with it.
   const widgets = [
@@ -25,6 +31,7 @@ requireGoogleAuth(async () => {
     initOutlookCalendar,
     initTicketTailor,
     initSocial,
+    initPatchMap,
   ];
 
   for (const start of widgets) {

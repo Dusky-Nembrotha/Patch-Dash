@@ -1,10 +1,17 @@
 import { loadCollection, saveCollection, newId } from "./driveStore.js";
 import { makeSortable } from "./reorder.js";
+import { loadAttachments, attachmentsHtml, wireAttachments } from "./attachments.js";
 
 let fundingItems = [];
+let fundingFiles = [];
 
 export async function initFunding() {
   fundingItems = await loadCollection("funding");
+  try { fundingFiles = await loadAttachments("funding"); } catch (_) { fundingFiles = []; }
+  wireAttachments(document.getElementById("funding-list"), "funding", async () => {
+    fundingFiles = await loadAttachments("funding");
+    render();
+  });
   render();
 
   document.getElementById("funding-add-btn").addEventListener("click", async () => {
@@ -73,6 +80,7 @@ function cardHtml(f) {
         <button class="del" id="funding-del-${f.id}" style="float:right;">&times;</button>
       </div>
       <span class="funding-status ${f.status}">${f.status}</span>
+      ${attachmentsHtml("funding", f.id, fundingFiles)}
     </div>
   `;
 }

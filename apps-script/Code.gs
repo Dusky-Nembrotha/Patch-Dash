@@ -66,7 +66,27 @@ function doPost(e) {
     var contents = e.postData ? e.postData.contents : "[]";
     return jsonOutput(saveCollectionData(name, contents));
   }
+  if (e.parameter.action === "upload") {
+    var b64 = e.postData ? e.postData.contents : "";
+    return jsonOutput(uploadFile(e.parameter.filename, e.parameter.mime, b64));
+  }
   return jsonOutput({ error: "unknown action" });
+}
+
+// Saves a base64-encoded file to an "attachments" subfolder in the shared
+// Drive and returns its id. Link-viewable so both users can see it.
+function uploadFile(filename, mime, base64) {
+  if (!base64) return { error: "no data" };
+  var root = getDataFolder();
+  var it = root.getFoldersByName("attachments");
+  var folder = it.hasNext() ? it.next() : root.createFolder("attachments");
+  var bytes = Utilities.base64Decode(base64);
+  var blob = Utilities.newBlob(bytes, mime || "application/octet-stream", filename || "file");
+  var file = folder.createFile(blob);
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (err) {}
+  return { id: file.getId(), name: file.getName(), mime: mime || "" };
 }
 
 // Confirms the caller is one of the allowed users, by checking the Google
