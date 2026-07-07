@@ -31,6 +31,9 @@ function doGet(e) {
   if (action === "tickettailor") {
     return jsonOutput(getTicketTailorEvents(props.getProperty("TICKET_TAILOR_API_KEY")));
   }
+  if (action === "attendees") {
+    return jsonOutput(getAttendees(props.getProperty("TICKET_TAILOR_API_KEY"), e.parameter.event_id));
+  }
   if (action === "meta") {
     return jsonOutput(getMetaMessages(props));
   }
@@ -76,10 +79,47 @@ function getTicketTailorEvents(apiKey) {
       return start >= now;
     })
     .map((ev) => ({
+      id: ev.id,
       name: ev.name,
       start: ev.start,
       venue: ev.venue ? ev.venue.name : null,
       tickets_sold: ev.total_issued_tickets || null,
+    }));
+}
+
+// Returns attendee names/ticket types for a single event, for the
+// dashboard's expandable event rows.
+// NOTE: Ticket Tailor's exact field names for issued_tickets aren't
+// fully documented publicly — if names/ticket types show up blank once
+// you test this, open the Apps Script "Executions" log, look at the raw
+// JSON in the error, and adjust the field names below to match.
+function getAttendees(apiKey, eventId) {
+  if (!apiKey) return { error: "TICKET_TAILOR_API_KEY not set in Script Properties" };
+  if (!eventId) return { error: "Missing event_id" };
+
+  const basicAuth = Utilities.base64Encode(apiKey + ":");
+  const res = UrlFetchApp.fetch(
+    "https://api.tickettailor.com/v1/issued_tickets?event_id=" + encodeURIComponent(eventId) + "&limit=100",
+    { headers: { Authorization: "Basic " + basicAuth }, muteHttpExceptions: true }
+  );
+
+  if (res.getResponseCode() !== 200) {
+    return { error: "Ticket Tailor error: " + res.getContentText() };
+  }
+
+  const json = JSON.parse(res.getContentText());
+
+  return (json.data || [])
+    .filter((t) => t.status !== "voided" && t.status !== "void")
+    .map((t) => ({
+      name:
+        t.holder_name ||
+        [t.first_name, t.last_name].filter(Boolean).join(" ") ||
+        t.buyer_name ||
+        "Unnamed attendee",
+      ticket_type: (t.ticket_type && t.ticket_type.name) || t.ticket_type_name || null,
+      status: t.status || null,
+      checked_in: !!t.checked_in_at,
     }));
 }
 
