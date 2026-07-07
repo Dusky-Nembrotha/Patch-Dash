@@ -48,7 +48,7 @@ function verifyCaller(token, ownerEmail) {
       { muteHttpExceptions: true }
     );
     const info = JSON.parse(res.getContentText());
-    return info.email === ownerEmail && info.email_verified === "true" || info.email_verified === true;
+    return info.email === ownerEmail && (info.email_verified === "true" || info.email_verified === true);
   } catch (err) {
     return false;
   }
