@@ -1,16 +1,34 @@
 import { loadCollection, saveCollection, newId } from "./driveStore.js";
+import { SITE_BOUNDARY } from "./boundary.js";
 
 let map;
 let points = [];
 const markers = {};
 
 export async function initMap() {
-  map = L.map("map", { zoomControl: true }).setView([54.5, -3.0], 6);
+  map = L.map("map", { zoomControl: true });
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "&copy; OpenStreetMap contributors",
-    maxZoom: 18,
+  // Google satellite imagery. (Note: this is Google's tile endpoint, not the
+  // official Maps API — fine for a private dashboard. Swap lyrs=s -> lyrs=y
+  // for a hybrid view with road/place labels.)
+  L.tileLayer("https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", {
+    subdomains: ["mt0", "mt1", "mt2", "mt3"],
+    attribution: "Imagery &copy; Google",
+    maxZoom: 21,
   }).addTo(map);
+
+  // Site boundary (red line), drawn from the imported KMZ.
+  const boundary = L.geoJSON(SITE_BOUNDARY, {
+    style: {
+      color: "#e60000",
+      weight: 2,
+      opacity: 1,
+      fill: false,
+    },
+  }).addTo(map);
+
+  // Default view: fit the boundary (the red line).
+  map.fitBounds(boundary.getBounds(), { padding: [20, 20] });
 
   map.on("click", (e) => openNewPointPopup(e.latlng));
 
