@@ -235,51 +235,93 @@ function getAttendees(apiKey, eventId) {
 
 // ---------- Meta (Facebook / Instagram) ----------
 
-// Reads recent Page and Instagram conversations. Turns on automatically once
-// META_PAGE_ACCESS_TOKEN + META_PAGE_ID are set in Script Properties — no
-// code change needed. META_IG_BUSINESS_ID is optional (adds Instagram DMs).
+// Reads recent conversations. Facebook uses the Page token (Messenger
+// Platform); Instagram uses a separate Instagram-Login token via
+// graph.instagram.com. Each turns on automatically once its token is set:
+//   Facebook  -> META_PAGE_ACCESS_TOKEN + META_PAGE_ID
+//   Instagram -> IG_ACCESS_TOKEN (+ IG_USER_ID to label the other participant)
 function getMetaMessages(props) {
   var pageToken = props.getProperty("META_PAGE_ACCESS_TOKEN");
   var pageId = props.getProperty("META_PAGE_ID");
-  var igId = props.getProperty("META_IG_BUSINESS_ID");
+  var igToken = props.getProperty("IG_ACCESS_TOKEN");
 
-  if (!pageToken || !pageId) {
+  if ((!pageToken || !pageId) && !igToken) {
     return { pending: true };
   }
 
-  function conversations(id, platformParam) {
-    var url =
-      "https://graph.facebook.com/v19.0/" + id + "/conversations?fields=participants,snippet,updated_time" +
-      (platformParam ? "&platform=instagram" : "") +
-      "&access_token=" + encodeURIComponent(pageToken);
-    var res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-    var json = JSON.parse(res.getContentText());
-    if (json.error) throw json.error.message || "Meta API error";
-    return json.data || [];
-  }
+  var messages = [];
+  var errors = [];
 
-  function shape(list, platform) {
-    return (list || []).map(function (c) {
-      var other = (c.participants && c.participants.data || []).find(function (p) { return p.id !== pageId; });
-      return {
-        platform: platform,
-        from: other ? other.username || other.name : "Unknown",
-        snippet: c.snippet,
-        timestamp: c.updated_time,
-      };
-    });
-  }
-
-  try {
-    var messages = shape(conversations(pageId, false), "facebook");
-    if (igId) {
-      messages = messages.concat(shape(conversations(igId, true), "instagram"));
+  if (pageToken && pageId) {
+    try {
+      messages = messages.concat(getFacebookMessages(pageToken, pageId));
+    } catch (err) {
+      errors.push("Facebook: " + err);
     }
-    messages.sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
-    return messages;
-  } catch (err) {
-    return { error: String(err) };
   }
+  if (igToken) {
+    try {
+      messages = messages.concat(getInstagramMessages(igToken, props.getProperty("IG_USER_ID")));
+    } catch (err) {
+      errors.push("Instagram: " + err);
+    }
+  }
+
+  if (!messages.length && errors.length) {
+    return { error: errors.join(" | ") };
+  }
+  messages.sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
+  return messages;
+}
+
+function getFacebookMessages(pageToken, pageId) {
+  var url =
+    "https://graph.facebook.com/v19.0/" + pageId +
+    "/conversations?fields=participants,snippet,updated_time&access_token=" + encodeURIComponent(pageToken);
+  var json = JSON.parse(UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText());
+  if (json.error) throw json.error.message || "Facebook API error";
+  return (json.data || []).map(function (c) {
+    var other = (c.participants && c.participants.data || []).find(function (p) { return p.id !== pageId; });
+    return {
+      platform: "facebook",
+      from: other ? other.username || other.name : "Unknown",
+      snippet: c.snippet,
+      timestamp: c.updated_time,
+    };
+  });
+}
+
+function getInstagramMessages(igToken, selfId) {
+  var url =
+    "https://graph.instagram.com/v21.0/me/conversations?fields=participants,updated_time,messages.limit(1){message,from}" +
+    "&access_token=" + encodeURIComponent(igToken);
+  var json = JSON.parse(UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText());
+  if (json.error) throw json.error.message || "Instagram API error";
+  return (json.data || []).map(function (c) {
+    var parts = (c.participants && c.participants.data) || [];
+    var other = parts.find(function (p) { return String(p.id) !== String(selfId); }) || parts[parts.length - 1] || {};
+    var last = (c.messages && c.messages.data && c.messages.data[0]) || {};
+    return {
+      platform: "instagram",
+      from: other.username || other.name || "Instagram user",
+      snippet: last.message || "",
+      timestamp: c.updated_time,
+    };
+  });
+}
+
+// Extends the Instagram long-lived token (they expire after 60 days). Set a
+// weekly time-driven trigger for this function so IG never goes stale.
+function refreshInstagramToken() {
+  var props = PropertiesService.getScriptProperties();
+  var token = props.getProperty("IG_ACCESS_TOKEN");
+  if (!token) return;
+  var res = UrlFetchApp.fetch(
+    "https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=" + encodeURIComponent(token),
+    { muteHttpExceptions: true }
+  );
+  var json = JSON.parse(res.getContentText());
+  if (json.access_token) props.setProperty("IG_ACCESS_TOKEN", json.access_token);
 }
 
 function jsonOutput(obj) {
