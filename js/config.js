@@ -24,7 +24,9 @@ export const CONFIG = {
   microsoft: {
     clientId: "a434f2c0-4ae1-4cc6-9a8c-35806710ff5a",
     authority: "https://login.microsoftonline.com/common",
-    redirectUri: window.location.origin + window.location.pathname,
+    // Normalise to always end in exactly one "/" so the redirect URI is
+    // deterministic (Azure rejects a trailing-slash mismatch: AADSTS50011).
+    redirectUri: window.location.origin + window.location.pathname.replace(/\/?$/, "/"),
     scopes: ["Mail.Read", "Calendars.Read"],
   },
 };
