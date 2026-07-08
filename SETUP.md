@@ -146,8 +146,11 @@ works entirely from the browser too.
    accounts" (unless you specifically only ever use a work/school
    account, in which case pick the single-tenant option instead).
 4. Under **Redirect URI**: platform dropdown → **Single-page application
-   (SPA)** → paste your exact GitHub Pages URL including the trailing
-   slash, e.g. `https://yourname.github.io/patch-wilder-dashboard/`.
+   (SPA)** → paste your exact GitHub Pages URL including the trailing slash
+   (case-sensitive). Current live URL:
+   `https://clarksonwoods.github.io/Patch-Dash/`. If you rename the repo,
+   the URL changes — add the new one here or Outlook sign-in breaks with an
+   `AADSTS50011` redirect-uri mismatch.
 5. Click **Register**. On the Overview page, copy the **Application
    (client) ID**.
 6. Left sidebar → **API permissions → Add a permission → Microsoft Graph

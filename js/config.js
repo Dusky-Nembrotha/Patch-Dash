@@ -18,8 +18,9 @@ export const CONFIG = {
   appsScriptUrl: "https://script.google.com/macros/s/AKfycbwPFO8IGO7cfEHLNmuTCcUsflTusj8iB5LDGN0Y1PqF7o87TVqTi5oOVvM71RE6n0Spwg/exec",
 
   // --- Microsoft Entra ID (Azure AD) app registration for Outlook ---
-  // App registration > Overview. Redirect URI must be your GitHub Pages
-  // URL exactly, e.g. https://yourname.github.io/patch-wilder/
+  // redirectUri below is computed from the live URL, so register THAT exact
+  // URL as an SPA redirect URI in Azure. Current live URL (case-sensitive):
+  //   https://clarksonwoods.github.io/Patch-Dash/
   microsoft: {
     clientId: "a434f2c0-4ae1-4cc6-9a8c-35806710ff5a",
     authority: "https://login.microsoftonline.com/common",
