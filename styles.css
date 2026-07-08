@@ -66,18 +66,20 @@ a { color: var(--accent-ink); }
 .site-header {
   position: relative;
   z-index: 1;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 20px;
-  padding: 18px 32px 16px;
+  padding: 16px 32px 14px;
   border-bottom: 1px solid var(--line);
 }
 
-.site-header .brand { display: inline-flex; line-height: 0; }
-.site-header .logo { height: 180px; width: auto; }
+.site-header .brand { grid-column: 2; justify-self: center; display: inline-flex; line-height: 0; }
+.site-header .logo { height: 200px; width: auto; max-width: 100%; }
 
 .header-right {
+  grid-column: 3;
+  justify-self: end;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -665,6 +667,13 @@ textarea { resize: vertical; min-height: 50px; }
 
 .attach-add.busy { opacity: 0.5; pointer-events: none; }
 
+/* Brand icons */
+.msg-ico { display: inline-flex; flex-shrink: 0; line-height: 0; margin-top: 1px; }
+.msg-ico svg { display: block; border-radius: 4px; }
+.win-ico { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; font-size: 20px; line-height: 1; }
+.win-ico svg { display: block; border-radius: 4px; }
+.patch-header h2 { display: flex; align-items: center; }
+
 /* Leaflet layer control on the light theme */
 .leaflet-control-layers { font-family: var(--font-body); font-size: 12px; border-radius: 4px; }
 
@@ -682,11 +691,11 @@ textarea { resize: vertical; min-height: 50px; }
 
 @media (max-width: 1000px) {
   .patch, .patch--narrow { grid-column: span 12; }
-  .site-header { flex-direction: column; gap: 12px; align-items: center; }
+  .site-header { display: flex; flex-direction: column; gap: 12px; align-items: center; }
   .header-right { align-items: center; }
   .site-header .status-line { text-align: center; }
   .weather { justify-content: center; }
-  .site-header .logo { height: 120px; }
+  .site-header .logo { height: 130px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -78,7 +78,12 @@ function signOutOutlook() {
 
 async function graphGet(path, token) {
   const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Immutable ids stay stable across sessions, so comments/assignments
+      // keyed by a message/event id keep matching (default ids can change).
+      Prefer: 'IdType="ImmutableId"',
+    },
   });
   if (!res.ok) throw new Error(`Graph API error ${res.status}`);
   return res.json();

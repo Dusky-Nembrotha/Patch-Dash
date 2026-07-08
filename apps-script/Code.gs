@@ -277,37 +277,45 @@ function getMetaMessages(props) {
 function getFacebookMessages(pageToken, pageId) {
   var url =
     "https://graph.facebook.com/v19.0/" + pageId +
-    "/conversations?fields=participants,snippet,updated_time&access_token=" + encodeURIComponent(pageToken);
+    "/conversations?fields=id,participants,snippet,updated_time,unread_count&access_token=" + encodeURIComponent(pageToken);
   var json = JSON.parse(UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText());
   if (json.error) throw json.error.message || "Facebook API error";
-  return (json.data || []).map(function (c) {
-    var other = (c.participants && c.participants.data || []).find(function (p) { return p.id !== pageId; });
-    return {
-      platform: "facebook",
-      from: other ? other.username || other.name : "Unknown",
-      snippet: c.snippet,
-      timestamp: c.updated_time,
-    };
-  });
+  return (json.data || [])
+    .filter(function (c) { return c.unread_count > 0; })
+    .map(function (c) {
+      var other = (c.participants && c.participants.data || []).find(function (p) { return p.id !== pageId; });
+      return {
+        id: c.id,
+        platform: "facebook",
+        from: other ? other.username || other.name : "Unknown",
+        snippet: c.snippet,
+        timestamp: c.updated_time,
+        unread: c.unread_count,
+      };
+    });
 }
 
 function getInstagramMessages(igToken, selfId) {
   var url =
-    "https://graph.instagram.com/v21.0/me/conversations?fields=participants,updated_time,messages.limit(1){message,from}" +
+    "https://graph.instagram.com/v21.0/me/conversations?fields=id,participants,updated_time,unread_count,messages.limit(1){message,from}" +
     "&access_token=" + encodeURIComponent(igToken);
   var json = JSON.parse(UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText());
   if (json.error) throw json.error.message || "Instagram API error";
-  return (json.data || []).map(function (c) {
-    var parts = (c.participants && c.participants.data) || [];
-    var other = parts.find(function (p) { return String(p.id) !== String(selfId); }) || parts[parts.length - 1] || {};
-    var last = (c.messages && c.messages.data && c.messages.data[0]) || {};
-    return {
-      platform: "instagram",
-      from: other.username || other.name || "Instagram user",
-      snippet: last.message || "",
-      timestamp: c.updated_time,
-    };
-  });
+  return (json.data || [])
+    .filter(function (c) { return c.unread_count > 0; })
+    .map(function (c) {
+      var parts = (c.participants && c.participants.data) || [];
+      var other = parts.find(function (p) { return String(p.id) !== String(selfId); }) || parts[parts.length - 1] || {};
+      var last = (c.messages && c.messages.data && c.messages.data[0]) || {};
+      return {
+        id: c.id,
+        platform: "instagram",
+        from: other.username || other.name || "Instagram user",
+        snippet: last.message || "",
+        timestamp: c.updated_time,
+        unread: c.unread_count,
+      };
+    });
 }
 
 // Extends the Instagram long-lived token (they expire after 60 days). Set a
