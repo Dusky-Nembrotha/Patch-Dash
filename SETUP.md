@@ -167,62 +167,62 @@ unread mail and next 14 days of calendar events.
 
 ---
 
-## Step 6 — Facebook & Instagram messages (slowest — 1 to 4 weeks)
+## Step 6 — Facebook & Instagram messages (no App Review needed)
 
-This is the one that takes real calendar time, because Meta requires
-**App Review** before any app — including one built only for yourself —
-can read Page or Instagram messages. There's no way around this even for
-personal use. Everything else in the dashboard works fully while this is
-pending.
+You do **not** need Meta's App Review or Business Verification, because
+you're only reading your **own** Page/Instagram messages. Keep the Meta app
+in **Development ("Unpublished") mode** — in that mode, people with a role
+on the app (you) can use messaging permissions on assets you own. App
+Review is only for accessing *other people's* data in production.
 
-1. Go to [developers.facebook.com](https://developers.facebook.com) → **My
-   Apps → Create App**. Type: **Business**. Name it "Patch Wilder
-   Dashboard".
-2. In the app dashboard, click **Add Product** and add both **Messenger**
-   and **Instagram**.
-3. Under Messenger's settings, connect your Facebook Page. If your
-   Instagram account is a Professional account linked to that Page, it'll
-   show up under the Instagram product too — connect it.
-4. Generate a **Page Access Token**: Messenger → Settings →
-   "Access Tokens" section, or via the **Graph API Explorer**
-   (developers.facebook.com/tools/explorer) — select your app and Page,
-   generate a token with `pages_messaging` and `pages_show_list`
-   permissions.
-5. Find two IDs you'll need, using the Graph API Explorer:
-   - Your **Page ID**: query `me/accounts`, find your Page in the list.
-   - Your **Instagram Business Account ID**: query
-     `{page-id}?fields=instagram_business_account`.
-6. Back in Apps Script (`script.google.com`, your Patch Wilder Proxy
-   project) → gear icon → Script Properties → add:
-   - `META_PAGE_ACCESS_TOKEN`
-   - `META_PAGE_ID`
-   - `META_IG_BUSINESS_ID`
-7. In your Meta app dashboard, go to **App Review → Permissions and
-   Features**, find `pages_messaging` and `instagram_manage_messages`,
-   and click **Request**. You'll be asked to:
-   - Explain your use case in plain language (e.g. "A private dashboard
-     that shows me new Page and Instagram messages for my conservation
-     project so I don't miss any.")
-   - Record a short screen capture showing the exact flow: signing into
-     the dashboard, and the messages panel populating with real data.
-     Meta reviewers specifically check that the recording matches the
-     described use case.
-   - Submit for review. This typically takes 1–4 weeks and isn't
-     guaranteed to be approved on the first attempt — if it's rejected,
-     the feedback usually tells you exactly what to fix and you can
-     resubmit.
-8. Once approved (you'll get an email), open `apps-script/Code.gs` in your
-   repo, change `META_REVIEW_APPROVED` to `true`, then in
-   script.google.com: paste the updated code in, **Deploy → Manage
-   deployments → pencil icon → New version → Deploy**.
+The proxy turns each platform on automatically the moment its token(s) are
+present in Script Properties — no code change or redeploy needed.
 
-**Test it:** reload the dashboard. The Messages panel should switch from
-the "pending review" note to showing real recent Facebook/Instagram
-conversations.
+Note Meta uses TWO different Instagram APIs; we use the newer **Instagram
+Login** one (separate token), not the Facebook-Page route, for IG.
 
-Want help drafting the exact use-case description and recording script
-for the App Review submission when you get there? I can put that together
-whenever you're ready for Step 6.
+### Facebook (Page messages) — permanent token
+
+1. [developers.facebook.com](https://developers.facebook.com) → **Create App**
+   → type **Business**. Leave it **Unpublished** (Development mode).
+2. **Add use cases** → **"Manage everything on your Page"** and **"Engage
+   with customers on Messenger from Meta"**. Open each → connect your
+   **Facebook Page**.
+3. **Tools → Graph API Explorer** → select your app → add permissions
+   `pages_show_list`, `pages_messaging`, `pages_read_engagement` →
+   **Generate Access Token** (a short-lived *user* token).
+4. Make it a **permanent Page token** (Page tokens from a long-lived user
+   token never expire). In the browser:
+   - Long-lived user token (App ID/Secret from **App settings → Basic**):
+     `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=APP_ID&client_secret=APP_SECRET&fb_exchange_token=USER_TOKEN`
+   - Then `https://graph.facebook.com/v19.0/me/accounts?fields=name,access_token&access_token=LONG_LIVED_USER_TOKEN`
+     → the Page's `access_token` is your permanent token.
+5. Script Properties (Apps Script → ⚙ Project Settings):
+   `META_PAGE_ACCESS_TOKEN` = that Page token; `META_PAGE_ID` = the Page id
+   (ours: `114162336893482`).
+
+### Instagram (DMs) — Instagram-Login token
+
+1. Your IG must be a **Professional** account **linked to the Page**.
+2. **Add use cases** → **"Manage messaging & content on Instagram"** →
+   Customize → **API setup with Instagram login**. Permissions:
+   `instagram_business_basic`, `instagram_business_manage_messages`.
+3. In **App roles → Roles → Instagram testers**, add the IG account, then
+   **accept the invite** from the Instagram app (Settings → Apps and
+   websites → Tester invites).
+4. On that setup screen, **"Generate access tokens" → Add account** → it
+   produces a **long-lived (~60-day) Instagram token** directly (do NOT run
+   the `ig_exchange_token` step — it only works on short-lived tokens).
+5. Script Properties: `IG_ACCESS_TOKEN` = that token; `IG_USER_ID` = the IG
+   user id (ours: `17841431154779628`, from
+   `https://graph.instagram.com/v21.0/me?fields=user_id&access_token=…`).
+6. **Keep it alive:** Apps Script editor → ⏰ **Triggers** → add a
+   **time-driven, weekly** trigger for **`refreshInstagramToken`** (extends
+   the 60-day token automatically).
+
+**Test it:** hard-refresh the dashboard — the Messages window fills with
+Facebook conversations, and Instagram DMs appear once someone messages the
+account (send a test DM to confirm).
 
 ---
 
