@@ -34,7 +34,7 @@ function doGet(e) {
   try {
     return routeGet(e);
   } catch (err) {
-    return jsonOutput({ error: "server error: " + String((err && err.message) || err) });
+    return jsonOutput({ error: "server error: " + scrub(err) });
   }
 }
 
@@ -81,7 +81,7 @@ function doPost(e) {
   try {
     return routePost(e);
   } catch (err) {
-    return jsonOutput({ error: "server error: " + String((err && err.message) || err) });
+    return jsonOutput({ error: "server error: " + scrub(err) });
   }
 }
 
@@ -314,14 +314,14 @@ function getMetaMessages(props) {
     try {
       messages = messages.concat(getFacebookMessages(pageToken, pageId));
     } catch (err) {
-      errors.push("Facebook: " + err);
+      errors.push("Facebook: " + scrub(err));
     }
   }
   if (igToken) {
     try {
       messages = messages.concat(getInstagramMessages(igToken, props.getProperty("IG_USER_ID")));
     } catch (err) {
-      errors.push("Instagram: " + err);
+      errors.push("Instagram: " + scrub(err));
     }
   }
 
@@ -354,8 +354,13 @@ function getFacebookMessages(pageToken, pageId) {
 }
 
 function getInstagramMessages(igToken, selfId) {
+  // The fields value contains braces, which UrlFetchApp rejects unencoded with
+  // "Invalid argument", so encode it rather than inlining it raw.
+  var fields = encodeURIComponent(
+    "id,participants,updated_time,unread_count,messages.limit(1){message,from}"
+  );
   var url =
-    "https://graph.instagram.com/v21.0/me/conversations?fields=id,participants,updated_time,unread_count,messages.limit(1){message,from}" +
+    "https://graph.instagram.com/v21.0/me/conversations?fields=" + fields +
     "&access_token=" + encodeURIComponent(igToken);
   var json = JSON.parse(UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText());
   if (json.error) throw json.error.message || "Instagram API error";
@@ -422,7 +427,7 @@ function safeZoho(fn) {
   try {
     return fn();
   } catch (err) {
-    return { error: String((err && err.message) || err) };
+    return { error: scrub(err) };
   }
 }
 
@@ -574,6 +579,16 @@ function zohoParseStamp(s) {
   var m = String(s || "").match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?/);
   if (!m) return null;
   return Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
+}
+
+// UrlFetchApp puts the whole request URL in its exception text, and these URLs
+// carry tokens and secrets in the query string. Anything heading for the
+// browser goes through here first.
+function scrub(err) {
+  return String((err && err.message) || err).replace(
+    /(access_token|refresh_token|client_secret|token|code)=[^&\s"]+/gi,
+    "$1=[redacted]"
+  );
 }
 
 function jsonOutput(obj) {
