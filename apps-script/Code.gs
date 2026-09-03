@@ -159,8 +159,20 @@ function authProblem(token, props) {
   return verifyCaller(token, props) ? null : "unauthorized";
 }
 
+// One page load makes a dozen or so proxy calls, and each was asking Google
+// to identify the same token again. Cache the positive answer briefly: the
+// token is the credential and Google issues them for about an hour, so a few
+// minutes collapses a whole page load into one check. Failures are not cached,
+// so fixing OWNER_EMAIL or ALLOWED_EMAILS takes effect immediately.
 function verifyCaller(token, props) {
   if (!token) return false;
+
+  var cache = CacheService.getScriptCache();
+  var key = "auth_" + Utilities.base64Encode(
+    Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token)
+  );
+  if (cache.get(key) === "1") return true;
+
   var allowed = allowedEmails(props);
   try {
     var res = UrlFetchApp.fetch(
@@ -169,7 +181,9 @@ function verifyCaller(token, props) {
     );
     var info = JSON.parse(res.getContentText());
     var verified = info.email_verified === "true" || info.email_verified === true;
-    return verified && allowed.indexOf((info.email || "").toLowerCase()) !== -1;
+    var ok = verified && allowed.indexOf((info.email || "").toLowerCase()) !== -1;
+    if (ok) cache.put(key, "1", 300);
+    return ok;
   } catch (err) {
     return false;
   }
