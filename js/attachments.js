@@ -32,7 +32,7 @@ export async function uploadAttachment(scope, refId, file) {
     refId,
     filename: file.name,
     mime: file.type || "application/octet-stream",
-    author: displayName(getCurrentEmail()),
+    author: await displayName(getCurrentEmail()),
     token,
   });
   await fetch(`${CONFIG.appsScriptUrl}?${qs.toString()}`, {

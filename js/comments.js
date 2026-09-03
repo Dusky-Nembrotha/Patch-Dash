@@ -25,7 +25,7 @@ export async function addComment(scope, refId, text) {
     id: newId(),
     refId,
     text,
-    author: displayName(email),
+    author: await displayName(email),
     authorEmail: email,
     created_at: new Date().toISOString(),
   };
@@ -63,7 +63,7 @@ export function commentsBlockHtml(scope, refId, allComments) {
   const existing = allComments
     .filter((c) => c.refId === refId)
     .map((c) => {
-      const col = userColor(c.authorEmail || c.author);
+      const col = userColor(c.author);
       return `<div class="cmt" style="border-left-color:${col}">
           <button class="cmt-del" data-id="${escAttr(c.id)}" title="Delete note">&times;</button>
           <span class="cmt-text">${esc(c.text)}</span>

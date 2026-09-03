@@ -19,9 +19,11 @@
 //   clasp push  &&  clasp redeploy <deployment-id>
 // ============================================================
 
-// Users allowed to read/write the shared store (in addition to OWNER_EMAIL
-// and any ALLOWED_EMAILS script property).
-var DEFAULT_ALLOWED = ["owner@example.com", "user2@example.com"];
+// Users allowed to read/write the shared store. The repo is public, so the
+// list itself lives in the ALLOWED_EMAILS script property (comma-separated)
+// alongside OWNER_EMAIL — set that BEFORE deploying this file or everyone
+// except the owner loses access.
+var DEFAULT_ALLOWED = [];
 
 var DATA_FOLDER = "A Patch Wilder Data";
 

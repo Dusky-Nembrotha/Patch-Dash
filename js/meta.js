@@ -28,7 +28,7 @@ export async function setMeta(scope, refId, patch) {
   }
   Object.assign(rec, patch, {
     updated_at: new Date().toISOString(),
-    updated_by: displayName(getCurrentEmail()),
+    updated_by: await displayName(getCurrentEmail()),
   });
   await saveCollection(collectionFor(scope), list);
   return rec;
