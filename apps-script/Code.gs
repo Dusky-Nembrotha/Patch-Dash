@@ -29,9 +29,8 @@ var DATA_FOLDER = "A Patch Wilder Data";
 
 function doGet(e) {
   var props = PropertiesService.getScriptProperties();
-  if (!verifyCaller(e.parameter.token, props)) {
-    return jsonOutput({ error: "unauthorized" });
-  }
+  var problem = authProblem(e.parameter.token, props);
+  if (problem) return jsonOutput({ error: problem });
 
   var action = e.parameter.action;
 
@@ -66,9 +65,8 @@ function doGet(e) {
 // CORS preflight, which Apps Script can't answer).
 function doPost(e) {
   var props = PropertiesService.getScriptProperties();
-  if (!verifyCaller(e.parameter.token, props)) {
-    return jsonOutput({ error: "unauthorized" });
-  }
+  var problem = authProblem(e.parameter.token, props);
+  if (problem) return jsonOutput({ error: problem });
   if (e.parameter.action === "save") {
     var name = safeName(e.parameter.collection);
     if (!name) return jsonOutput({ error: "bad collection" });
@@ -119,14 +117,29 @@ function uploadFile(scope, refId, filename, mime, author, base64) {
 
 // Confirms the caller is one of the allowed users, by checking the Google
 // access token they sent resolves to an allowed, verified email.
-function verifyCaller(token, props) {
-  if (!token) return false;
+// The addresses permitted to use the shared store, lowercased.
+function allowedEmails(props) {
   var owner = (props.getProperty("OWNER_EMAIL") || "").toLowerCase();
   var extra = (props.getProperty("ALLOWED_EMAILS") || "")
     .split(",")
     .map(function (s) { return s.trim().toLowerCase(); })
     .filter(Boolean);
-  var allowed = [owner].concat(extra, DEFAULT_ALLOWED).filter(Boolean);
+  return [owner].concat(extra, DEFAULT_ALLOWED).filter(Boolean);
+}
+
+// null when the caller may proceed, otherwise why not. An empty allowlist is
+// called out separately so a fresh deploy with no ALLOWED_EMAILS set reads as
+// a configuration problem rather than everyone mysteriously losing access.
+function authProblem(token, props) {
+  if (!allowedEmails(props).length) {
+    return "no allowlist configured: set OWNER_EMAIL and ALLOWED_EMAILS in Script Properties";
+  }
+  return verifyCaller(token, props) ? null : "unauthorized";
+}
+
+function verifyCaller(token, props) {
+  if (!token) return false;
+  var allowed = allowedEmails(props);
   try {
     var res = UrlFetchApp.fetch(
       "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=" + encodeURIComponent(token),
