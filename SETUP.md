@@ -148,7 +148,7 @@ works entirely from the browser too.
 4. Under **Redirect URI**: platform dropdown → **Single-page application
    (SPA)** → paste your exact GitHub Pages URL including the trailing slash
    (case-sensitive). Current live URL:
-   `https://clarksonwoods.github.io/Patch-Dash/`. If you rename the repo,
+   `https://dusky-nembrotha.github.io/Patch-Dash/`. If you rename the repo,
    the URL changes — add the new one here or Outlook sign-in breaks with an
    `AADSTS50011` redirect-uri mismatch.
 5. Click **Register**. On the Overview page, copy the **Application

@@ -20,7 +20,7 @@ export const CONFIG = {
   // --- Microsoft Entra ID (Azure AD) app registration for Outlook ---
   // redirectUri below is computed from the live URL, so register THAT exact
   // URL as an SPA redirect URI in Azure. Current live URL (case-sensitive):
-  //   https://clarksonwoods.github.io/Patch-Dash/
+  //   https://dusky-nembrotha.github.io/Patch-Dash/
   microsoft: {
     clientId: "a434f2c0-4ae1-4cc6-9a8c-35806710ff5a",
     authority: "https://login.microsoftonline.com/common",
