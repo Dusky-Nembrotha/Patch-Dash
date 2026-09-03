@@ -36,13 +36,16 @@ requireGoogleAuth(async () => {
     initPatchMap,
   ];
 
-  for (const start of widgets) {
-    try {
-      await start();
-    } catch (err) {
-      console.error("Widget failed to initialize:", err);
-    }
-  }
+  // Start them together rather than in sequence. Each widget makes its own
+  // proxy round trips, and in series one slow integration held up every panel
+  // queued behind it — the dashboard took minutes to show anything.
+  await Promise.allSettled(
+    widgets.map((start) =>
+      Promise.resolve()
+        .then(start)
+        .catch((err) => console.error("Widget failed to initialize:", err))
+    )
+  );
 
   // Point the Drive-backed windows' source links at the actual data folder.
   try {

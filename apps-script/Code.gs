@@ -27,7 +27,18 @@ var DEFAULT_ALLOWED = [];
 
 var DATA_FOLDER = "A Patch Wilder Data";
 
+// Anything thrown out of a web app handler is served as an HTML error
+// page, which the browser then fails to parse as JSON. Keep every reply
+// JSON so a fault arrives as a readable message instead of a stray '<'.
 function doGet(e) {
+  try {
+    return routeGet(e);
+  } catch (err) {
+    return jsonOutput({ error: "server error: " + String((err && err.message) || err) });
+  }
+}
+
+function routeGet(e) {
   var props = PropertiesService.getScriptProperties();
   var problem = authProblem(e.parameter.token, props);
   if (problem) return jsonOutput({ error: problem });
@@ -63,7 +74,18 @@ function doGet(e) {
 // Saves are POSTed (the JSON body can be larger than a URL allows). Sent with
 // Content-Type text/plain so the browser treats it as a simple request (no
 // CORS preflight, which Apps Script can't answer).
+// Anything thrown out of a web app handler is served as an HTML error
+// page, which the browser then fails to parse as JSON. Keep every reply
+// JSON so a fault arrives as a readable message instead of a stray '<'.
 function doPost(e) {
+  try {
+    return routePost(e);
+  } catch (err) {
+    return jsonOutput({ error: "server error: " + String((err && err.message) || err) });
+  }
+}
+
+function routePost(e) {
   var props = PropertiesService.getScriptProperties();
   var problem = authProblem(e.parameter.token, props);
   if (problem) return jsonOutput({ error: problem });

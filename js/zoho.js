@@ -17,7 +17,18 @@ import { assignableUsers } from "./users.js";
 async function proxy(action) {
   const token = await getAccessToken();
   const res = await fetch(`${CONFIG.appsScriptUrl}?action=${action}&token=${encodeURIComponent(token)}`);
-  return res.json();
+  const body = await res.text();
+  try {
+    return JSON.parse(body);
+  } catch (_) {
+    // Apps Script serves an HTML page when a request errors or runs past its
+    // execution limit, so a parse failure here is a proxy problem rather than
+    // anything to do with the data.
+    throw new Error(
+      `The proxy returned a page instead of data (HTTP ${res.status}) — the ` +
+      `Apps Script most likely timed out or threw. Check its Executions log.`
+    );
+  }
 }
 
 // ---------- Mail ----------
