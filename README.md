@@ -19,7 +19,7 @@ js/googleAuth.js            Google Sign-In + token management
 js/driveStore.js            reads/writes your data as JSON files in Drive
 js/map.js, todo.js,
    ideas.js, funding.js     widgets, all backed by Google Drive
-js/outlook.js               Outlook mail + calendar (Microsoft sign-in)
+js/zoho.js                  Zoho mail + calendar (via the Apps Script proxy)
 js/tickettailor.js,
    social.js                call the Apps Script proxy below
 apps-script/Code.gs          paste into script.google.com — holds your

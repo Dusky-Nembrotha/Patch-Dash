@@ -133,40 +133,71 @@ Script Properties in step 4 are spelled exactly right and that
 
 ---
 
-## Step 5 — Outlook mail & calendar (~10 min)
+## Step 5 — Zoho mail & calendar (~15 min)
 
-This one's independent of Google — it's Microsoft's own sign-in, so it
-works entirely from the browser too.
+Unlike the other panels, Zoho's Mail and Calendar APIs need a **client
+secret** to issue tokens, and a secret can never live in a public GitHub
+Pages site. So this one runs through the Apps Script proxy from Step 4:
+the script holds the credentials and serves *your* mail and calendar to
+everyone allowed on the dashboard. There's no per-user sign-in button.
 
-1. Go to [entra.microsoft.com](https://entra.microsoft.com) (sign in with
-   the Microsoft/Outlook account whose mail and calendar you want to see).
-2. Left sidebar → **Applications → App registrations → New registration**.
-3. Name: "Patch Wilder Dashboard". Under **Supported account types**,
-   choose "Accounts in any organizational directory and personal Microsoft
-   accounts" (unless you specifically only ever use a work/school
-   account, in which case pick the single-tenant option instead).
-4. Under **Redirect URI**: platform dropdown → **Single-page application
-   (SPA)** → paste your exact GitHub Pages URL including the trailing slash
-   (case-sensitive). Current live URL:
-   `https://dusky-nembrotha.github.io/Patch-Dash/`. If you rename the repo,
-   the URL changes — add the new one here or Outlook sign-in breaks with an
-   `AADSTS50011` redirect-uri mismatch.
-5. Click **Register**. On the Overview page, copy the **Application
-   (client) ID**.
-6. Left sidebar → **API permissions → Add a permission → Microsoft Graph
-   → Delegated permissions** → search and tick `Mail.Read` and
-   `Calendars.Read` → **Add permissions**.
-   - If you're using a personal Microsoft account, that's it.
-   - If it's a work/school account and you see "Admin consent required",
-     click **Grant admin consent** (if you're the admin) or ask whoever
-     manages your org's Microsoft 365 to click it once.
-7. In your repo, edit `js/config.js` → paste the client ID into
-   `microsoft.clientId`. Commit.
+1. Go to [api-console.zoho.eu](https://api-console.zoho.eu) (use
+   `.com`/`.in`/`.com.au` instead if your Zoho account lives in another
+   data centre — the domain you log into Zoho Mail with tells you which).
+2. **Add Client → Self Client** → **Create**. This is the flow for a
+   server-to-server integration with no redirect URL.
+3. On the **Client Secret** tab, copy the **Client ID** and **Client
+   Secret**.
+4. On the **Generate Code** tab, paste this as the scope:
+
+   ```
+   ZohoMail.accounts.READ,ZohoMail.messages.READ,ZohoCalendar.calendar.READ,ZohoCalendar.event.READ
+   ```
+
+   Set a duration of 10 minutes, enter any description, and **Create**.
+   Copy the generated code — it is single-use and expires quickly.
+5. Swap that code for a refresh token. Run this within the 10 minutes,
+   substituting your own values (and your data-centre domain):
+
+   ```
+   curl -X POST "https://accounts.zoho.eu/oauth/v2/token" \
+     -d "grant_type=authorization_code" \
+     -d "client_id=YOUR_CLIENT_ID" \
+     -d "client_secret=YOUR_CLIENT_SECRET" \
+     -d "code=THE_CODE_FROM_STEP_4"
+   ```
+
+   Copy `refresh_token` from the JSON reply. Unlike the access token, it
+   does not expire — the dashboard trades it for a fresh access token
+   every hour on its own.
+6. In your Apps Script project → **Project Settings → Script Properties**,
+   add:
+
+   | Property | Value |
+   | --- | --- |
+   | `ZOHO_CLIENT_ID` | from step 3 |
+   | `ZOHO_CLIENT_SECRET` | from step 3 |
+   | `ZOHO_REFRESH_TOKEN` | from step 5 |
+   | `ZOHO_DC` | your data centre suffix — `eu` (default), `com`, `in`, … |
+
+   You do **not** need to set `ZOHO_ACCOUNT_ID` or `ZOHO_CALENDAR_UID`:
+   the script looks both up on first use and writes them back here.
+7. `clasp push && clasp redeploy <deployment-id>` (or paste the code into
+   the editor and redeploy).
 
 **Test it:** reload the dashboard. The Inbox and Calendar panels should
-show a "Connect Outlook" prompt — click it, sign into Microsoft in the
-popup, approve the permissions, and you should see your real flagged/
-unread mail and next 14 days of calendar events.
+fill with your unread and follow-up-flagged mail, and the next 14 days of
+events. Until the properties are set they show a "Zoho isn't connected
+yet" note rather than an error.
+
+**Known rough edge:** Zoho doesn't document a stable per-message web URL,
+so the links on mail subjects and event titles are best-effort — if one
+opens the folder rather than the message, adjust the `webLink` lines in
+`apps-script/Code.gs`.
+
+**If you change your data centre or revoke the client**, delete
+`ZOHO_ACCOUNT_ID` and `ZOHO_CALENDAR_UID` from Script Properties too, so
+they get looked up again against the new account.
 
 ---
 
@@ -235,8 +266,9 @@ account (send a test DM to confirm).
   files in a folder called "A Patch Wilder Data" in your own Google
   Drive — visible to you like any other file, and it's what makes it
   sync across your phone and laptop automatically (it's just your Drive).
-- **Nothing in the public GitHub repo is a secret** — the Google Client
-  ID, Microsoft Client ID, and Apps Script URL are all meant to be public;
-  they only work in combination with you actually signing in.
-- **The real secrets** (Ticket Tailor key, Meta token) live only in Apps
-  Script's Script Properties, which nobody can see from the outside.
+- **Nothing in the public GitHub repo is a secret** — the Google Client ID
+  and the Apps Script URL are both meant to be public; they only work in
+  combination with you actually signing in.
+- **The real secrets** (Ticket Tailor key, Meta token, Zoho client secret
+  and refresh token) live only in Apps Script's Script Properties, which
+  nobody can see from the outside.

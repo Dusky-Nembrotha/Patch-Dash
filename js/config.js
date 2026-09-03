@@ -13,20 +13,7 @@ export const CONFIG = {
   },
 
   // --- Your deployed Google Apps Script Web App URL ---
-  // This holds your Ticket Tailor / Meta keys server-side and proxies
+  // This holds your Ticket Tailor / Meta / Zoho keys server-side and proxies
   // requests for them, so those secrets never reach the browser.
   appsScriptUrl: "https://script.google.com/macros/s/AKfycbwPFO8IGO7cfEHLNmuTCcUsflTusj8iB5LDGN0Y1PqF7o87TVqTi5oOVvM71RE6n0Spwg/exec",
-
-  // --- Microsoft Entra ID (Azure AD) app registration for Outlook ---
-  // redirectUri below is computed from the live URL, so register THAT exact
-  // URL as an SPA redirect URI in Azure. Current live URL (case-sensitive):
-  //   https://dusky-nembrotha.github.io/Patch-Dash/
-  microsoft: {
-    clientId: "a434f2c0-4ae1-4cc6-9a8c-35806710ff5a",
-    authority: "https://login.microsoftonline.com/common",
-    // Normalise to always end in exactly one "/" so the redirect URI is
-    // deterministic (Azure rejects a trailing-slash mismatch: AADSTS50011).
-    redirectUri: window.location.origin + window.location.pathname.replace(/\/?$/, "/"),
-    scopes: ["Mail.Read", "Calendars.Read"],
-  },
 };

@@ -13,6 +13,7 @@
 //   OWNER_EMAIL           = the account this runs as
 //   ALLOWED_EMAILS        = (optional) extra comma-separated emails allowed
 //   TICKET_TAILOR_API_KEY = your Ticket Tailor API key
+//   ZOHO_CLIENT_ID / ZOHO_CLIENT_SECRET / ZOHO_REFRESH_TOKEN = Zoho mail+calendar
 // Deploy: Web app, Execute as Me, Who has access: Anyone. Re-authorize when
 // prompted (it now needs Drive access). Whenever you change this file:
 //   clasp push  &&  clasp redeploy <deployment-id>
@@ -45,6 +46,12 @@ function doGet(e) {
   }
   if (action === "attendees") {
     return jsonOutput(getAttendees(props.getProperty("TICKET_TAILOR_API_KEY"), e.parameter.event_id));
+  }
+  if (action === "zohomail") {
+    return jsonOutput(safeZoho(function () { return getZohoMail(props); }));
+  }
+  if (action === "zohocalendar") {
+    return jsonOutput(safeZoho(function () { return getZohoCalendar(props); }));
   }
   if (action === "meta") {
     return jsonOutput(getMetaMessages(props));
@@ -330,6 +337,192 @@ function refreshInstagramToken() {
   );
   var json = JSON.parse(res.getContentText());
   if (json.access_token) props.setProperty("IG_ACCESS_TOKEN", json.access_token);
+}
+
+// ---------- Zoho (mail + calendar) ----------
+
+// Auth lives here rather than in the browser: Zoho's Mail and Calendar APIs
+// mint access tokens with a client secret, which a static GitHub Pages site
+// can't hold. So this shows the OWNER's mail and calendar to every allowed
+// user, the same way the Ticket Tailor and Meta panels already work. (The old
+// Outlook panels signed each user in individually; Zoho can't do that here.)
+//
+// Script Properties:
+//   ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN  (required)
+//   ZOHO_DC           = data-centre suffix: eu (default), com, in, com.au, …
+//   ZOHO_ACCOUNT_ID   = optional; looked up once and cached here
+//   ZOHO_CALENDAR_UID = optional; looked up once and cached here
+
+function zohoDc(props) {
+  return props.getProperty("ZOHO_DC") || "eu";
+}
+
+function zohoConfigured(props) {
+  return !!(
+    props.getProperty("ZOHO_CLIENT_ID") &&
+    props.getProperty("ZOHO_CLIENT_SECRET") &&
+    props.getProperty("ZOHO_REFRESH_TOKEN")
+  );
+}
+
+// Runs fn, turning a thrown Zoho/network error into the { error } shape the
+// panels already know how to display.
+function safeZoho(fn) {
+  try {
+    return fn();
+  } catch (err) {
+    return { error: String((err && err.message) || err) };
+  }
+}
+
+// Access tokens last an hour, so cache one rather than minting a fresh token
+// on every dashboard load. Refresh tokens themselves don't expire.
+function getZohoAccessToken(props) {
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get("zoho_access_token");
+  if (hit) return hit;
+
+  var res = UrlFetchApp.fetch(
+    "https://accounts.zoho." + zohoDc(props) + "/oauth/v2/token" +
+      "?refresh_token=" + encodeURIComponent(props.getProperty("ZOHO_REFRESH_TOKEN")) +
+      "&client_id=" + encodeURIComponent(props.getProperty("ZOHO_CLIENT_ID")) +
+      "&client_secret=" + encodeURIComponent(props.getProperty("ZOHO_CLIENT_SECRET")) +
+      "&grant_type=refresh_token",
+    { method: "post", muteHttpExceptions: true }
+  );
+
+  var json = JSON.parse(res.getContentText());
+  if (!json.access_token) {
+    throw new Error("Zoho token refresh failed: " + res.getContentText());
+  }
+  // Expire a little early so a request can't race the hour boundary.
+  cache.put("zoho_access_token", json.access_token, 3300);
+  return json.access_token;
+}
+
+function zohoFetch(url, token) {
+  var res = UrlFetchApp.fetch(url, {
+    headers: { Authorization: "Zoho-oauthtoken " + token },
+    muteHttpExceptions: true,
+  });
+  if (res.getResponseCode() !== 200) {
+    throw new Error("Zoho API " + res.getResponseCode() + ": " + res.getContentText());
+  }
+  return JSON.parse(res.getContentText());
+}
+
+function zohoAccountId(props, token) {
+  var saved = props.getProperty("ZOHO_ACCOUNT_ID");
+  if (saved) return saved;
+
+  var json = zohoFetch("https://mail.zoho." + zohoDc(props) + "/api/accounts", token);
+  var acc = (json.data || [])[0];
+  if (!acc) throw new Error("No Zoho Mail account found for this token");
+
+  var id = String(acc.accountId);
+  props.setProperty("ZOHO_ACCOUNT_ID", id);
+  return id;
+}
+
+function getZohoMail(props) {
+  if (!zohoConfigured(props)) return { pending: true };
+
+  var token = getZohoAccessToken(props);
+  var base =
+    "https://mail.zoho." + zohoDc(props) + "/api/accounts/" + zohoAccountId(props, token) + "/messages/view";
+
+  // Two passes, mirroring what the Outlook panel showed: unread, and anything
+  // flagged for follow-up. A message can be both, so they're merged by id.
+  var byId = {};
+  function tag(list, key) {
+    (list || []).forEach(function (m) {
+      var mid = String(m.messageId);
+      if (!byId[mid]) {
+        byId[mid] = {
+          id: mid,
+          subject: m.subject || "",
+          from: m.sender || m.fromAddress || "",
+          receivedTime: Number(m.receivedTime) || null,
+          // Best-effort deep link — Zoho don't document the per-message web
+          // URL. Worst case it opens the folder; check against a real message
+          // and adjust if so.
+          webLink:
+            "https://mail.zoho." + zohoDc(props) + "/zm/#mail/folder/" + m.folderId + "/" + mid,
+          unread: false,
+          flagged: false,
+        };
+      }
+      byId[mid][key] = true;
+    });
+  }
+
+  tag(zohoFetch(base + "?status=unread&limit=15&sortBy=date", token).data, "unread");
+  tag(zohoFetch(base + "?flagid=3&limit=15&sortBy=date", token).data, "flagged");
+
+  return Object.keys(byId)
+    .map(function (k) { return byId[k]; })
+    .sort(function (a, b) { return (b.receivedTime || 0) - (a.receivedTime || 0); });
+}
+
+function zohoCalendarUid(props, token) {
+  var saved = props.getProperty("ZOHO_CALENDAR_UID");
+  if (saved) return saved;
+
+  var json = zohoFetch("https://calendar.zoho." + zohoDc(props) + "/api/v1/calendars", token);
+  var cals = json.calendars || json.data || [];
+  var chosen = null;
+  for (var i = 0; i < cals.length; i++) {
+    if (cals[i].isdefault || cals[i].default) { chosen = cals[i]; break; }
+  }
+  chosen = chosen || cals[0];
+  if (!chosen) throw new Error("No Zoho calendar found for this token");
+
+  var uid = chosen.uid || chosen.calendarUid;
+  props.setProperty("ZOHO_CALENDAR_UID", uid);
+  return uid;
+}
+
+function getZohoCalendar(props) {
+  if (!zohoConfigured(props)) return { pending: true };
+
+  var token = getZohoAccessToken(props);
+  var now = new Date();
+  var end = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+  // Zoho caps a range query at 31 days; the panel only wants the next 14.
+  var range = JSON.stringify({ start: zohoStamp(now), end: zohoStamp(end) });
+
+  var json = zohoFetch(
+    "https://calendar.zoho." + zohoDc(props) +
+      "/api/v1/calendars/" + encodeURIComponent(zohoCalendarUid(props, token)) +
+      "/events?range=" + encodeURIComponent(range),
+    token
+  );
+
+  return (json.events || json.data || [])
+    .map(function (ev) {
+      var dt = ev.dateandtime || {};
+      return {
+        id: ev.uid,
+        title: ev.title || "",
+        start: zohoParseStamp(dt.start),
+        location: ev.location || "",
+        webLink: "https://calendar.zoho." + zohoDc(props) + "/zc/ui/#eventdetails/" + ev.uid,
+      };
+    })
+    .sort(function (a, b) { return (a.start || 0) - (b.start || 0); });
+}
+
+// Zoho's range parameter wants yyyyMMdd'T'HHmmss'Z'.
+function zohoStamp(d) {
+  return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+}
+
+// …and event times come back the same way. Convert to epoch ms so the browser
+// can just do new Date(n). All-day events have no time part.
+function zohoParseStamp(s) {
+  var m = String(s || "").match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?/);
+  if (!m) return null;
+  return Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
 }
 
 function jsonOutput(obj) {

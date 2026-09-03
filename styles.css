@@ -599,19 +599,6 @@ textarea { resize: vertical; min-height: 50px; }
 .cmt-add .cmt-input { flex: 1; font-size: 12.5px; padding: 5px 8px; }
 .cmt-add .cmt-save { flex-shrink: 0; }
 
-/* Signed-in footer (Outlook panels) */
-.panel-foot {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
-  font-size: 11px;
-  color: var(--muted);
-  text-align: right;
-}
-.panel-foot .panel-foot-who { font-family: var(--font-mono); }
-.panel-foot .outlook-signout { color: var(--accent-ink); text-decoration: none; }
-.panel-foot .outlook-signout:hover { text-decoration: underline; }
-
 /* ---------- Window drag ---------- */
 
 .drag-tab { cursor: grab; }

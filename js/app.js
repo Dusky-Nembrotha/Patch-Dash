@@ -6,7 +6,7 @@ import { initMap } from "./map.js";
 import { initTodo } from "./todo.js";
 import { initIdeas } from "./ideas.js";
 import { initFunding } from "./funding.js";
-import { initOutlookMail, initOutlookCalendar } from "./outlook.js";
+import { initZohoMail, initZohoCalendar } from "./zoho.js";
 import { initTicketTailor } from "./tickettailor.js";
 import { initSocial } from "./social.js";
 import { initPatchMap } from "./patchmap.js";
@@ -29,8 +29,8 @@ requireGoogleAuth(async () => {
     initTodo,
     initIdeas,
     initFunding,
-    initOutlookMail,
-    initOutlookCalendar,
+    initZohoMail,
+    initZohoCalendar,
     initTicketTailor,
     initSocial,
     initPatchMap,
